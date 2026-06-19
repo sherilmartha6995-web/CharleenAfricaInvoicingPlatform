@@ -1,0 +1,134 @@
+{% extends 'invoices/base.html' %}
+
+{% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{% block content %}
+<div class="container-fluid mt-2 position-relative" style="min-height: 85vh;">
+    
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-success{% else %}alert-danger{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-0 text-dark fw-bold">Review Invoice Ledger</h2>
+            <p class="text-muted small mb-0">Unified workflow dashboard preview.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary btn-sm px-3">
+                Back to Ledger List
+            </a>
+            
+            <a href="{% url 'invoice_pdf' invoice.id %}" target="_blank" class="btn btn-success btn-sm px-4 shadow-sm fw-medium">
+                Download PDF
+            </a>
+            
+            <a href="{% url 'send_invoice_email' invoice.id %}" class="btn btn-primary btn-sm px-4 shadow-sm fw-medium">
+                Email to Customer
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm overflow-hidden bg-white position-relative">
+        <div class="position-absolute start-0 top-0 bottom-0 d-none d-sm-block" 
+             style="width: 12px; background-color: #3b7a57; z-index: 10;"></div>
+        
+        <div class="card-body p-4 p-md-5" style="padding-left: calc(1.5rem + 12px) !important;">
+            <div class="row align-items-start mb-5 g-3">
+                <div class="col-sm-6">
+                    <h1 class="text-dark fw-bold mb-1 text-uppercase tracking-tight" style="font-size: 2rem;">Invoice</h1>
+                    <span class="fs-6 text-muted fw-medium">#INV-{{ invoice.id|stringformat:"04d" }}</span>
+                </div>
+                <div class="col-sm-6 text-sm-end">
+                    <h2 class="h4 text-dark fw-bold mb-1">Charleen Africa</h2>
+                    <span class="small text-muted text-uppercase tracking-wider">Invoicing Platform</span>
+                </div>
+            </div>
+
+            <div class="row mb-5 g-4">
+                <div class="col-md-6">
+                    <div class="text-uppercase tracking-wider text-muted fw-bold mb-2" style="font-size: 0.75rem;">Billed To</div>
+                    <div class="fs-5 fw-bold text-dark mb-1">{{ invoice.customer.name }}</div>
+                    <div class="text-secondary small lh-base">
+                        {{ invoice.customer.email|default:"No explicit email registered" }}
+                        {% if invoice.customer.address %}<br>{{ invoice.customer.address }}{% endif %}
+                        {% if invoice.customer.phone %}<br>{{ invoice.customer.phone }}{% endif %}
+                        {% if invoice.customer.kra_pin %}
+                            <br><span class="font-monospace text-dark opacity-75">PIN: {{ invoice.customer.kra_pin }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="text-uppercase tracking-wider text-muted fw-bold mb-2" style="font-size: 0.75rem;">Invoice Details</div>
+                    <div class="mb-1 small">
+                        <span class="text-muted me-2">Date Generated:</span>
+                        <span class="text-dark fw-bold">{{ invoice.issue_date|date:"Y-m-d" }}</span>
+                    </div>
+                    <div class="small">
+                        <span class="text-muted me-2">Status Mode:</span>
+                        <span class="badge bg-light text-dark border px-2 py-1 text-uppercase fw-bold font-monospace" style="font-size: 0.7rem;">
+                            {{ invoice.status }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="table-responsive mb-4">
+                <table class="table align-middle">
+                    <thead>
+                        <tr class="text-uppercase small tracking-wider text-secondary border-bottom">
+                            <th scope="col" class="ps-0 py-3 text-muted fw-bold" style="font-size: 0.75rem;">Product Description</th>
+                            <th scope="col" class="text-center py-3 text-muted fw-bold" style="font-size: 0.75rem;">Quantity</th>
+                            <th scope="col" class="text-center py-3 text-muted fw-bold" style="font-size: 0.75rem;">Tax Rate</th>
+                            <th scope="col" class="text-end pe-0 py-3 text-muted fw-bold" style="font-size: 0.75rem;">Subtotal (Net)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in line_items %}
+                        <tr class="border-bottom border-light">
+                            <td class="ps-0 py-3 fw-bold text-dark">{{ item.product.name }}</td>
+                            <td class="text-center py-3 text-secondary">{{ item.quantity }}</td>
+                            <td class="text-center py-3 text-secondary font-monospace">{{ item.tax_rate }}%</td>
+                            <td class="text-end pe-0 py-3 fw-bold text-dark">KES {{ item.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row justify-content-end mt-2">
+                <div class="col-sm-5 col-md-4 col-lg-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-1">
+                        <span class="text-muted small">Subtotal (Excl. Tax)</span>
+                        <span class="text-dark fw-bold">KES {{ invoice.subtotal|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-light">
+                        <span class="text-muted small">Tax Amount Due</span>
+                        <span class="text-dark fw-semibold">KES {{ invoice.tax_amount|floatformat:2 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-1">
+                        <span class="text-dark fw-bold text-uppercase tracking-wider" style="font-size: 0.8rem;">Total Amount</span>
+                        <span class="text-dark fw-extrabold fs-5" style="font-weight: 800;">KES {{ invoice.total_amount|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

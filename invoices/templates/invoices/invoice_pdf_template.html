@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice #INV-{{ invoice.id|stringformat:"04d" }}</title>
+    <style>
+        /* Force A4 dimensions and zero out native browser margins for exact print fit */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Far-Left Vertical Accent Brand Strip */
+        .left-accent-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 12px;
+            background-color: #3b7a57; /* Signature Green Accent */
+            height: 100vh;
+        }
+
+        /* Main printable canvas area */
+        .invoice-container {
+            position: relative;
+            padding: 50px 60px 50px 80px;
+            min-height: 100vh;
+        }
+
+        /* Header block */
+        .header-section {
+            width: 100%;
+            margin-bottom: 50px;
+        }
+        .header-left {
+            width: 60%;
+            float: left;
+        }
+        .header-right {
+            width: 40%;
+            float: right;
+            text-align: right;
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #111111;
+            margin: 0 0 5px 0;
+            letter-spacing: 1px;
+        }
+        .invoice-number {
+            font-size: 16px;
+            color: #777777;
+            font-weight: 500;
+        }
+        
+        .company-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #111111;
+            margin: 0 0 5px 0;
+        }
+        .company-subtitle {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #777777;
+            letter-spacing: 1.5px;
+        }
+
+        /* Metadata info block */
+        .meta-section {
+            width: 100%;
+            margin-bottom: 40px;
+        }
+        .meta-left {
+            width: 50%;
+            float: left;
+        }
+        .meta-right {
+            width: 50%;
+            float: right;
+            text-align: right;
+        }
+
+        .section-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #777777;
+            letter-spacing: 1.5px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .customer-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111111;
+            margin-bottom: 5px;
+        }
+        .customer-details {
+            font-size: 13px;
+            color: #555555;
+            line-height: 1.4;
+        }
+        .kra-pin {
+            font-family: monospace;
+            color: #111111;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        .meta-value {
+            font-weight: bold;
+            color: #111111;
+        }
+        
+        .meta-row {
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .meta-key {
+            color: #777777;
+            margin-right: 10px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background-color: #f5f5f5;
+            border: 1px solid #dddddd;
+            padding: 3px 8px;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-family: monospace;
+            color: #333333;
+        }
+
+        /* Clearfix utility to manage floated blocks */
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        /* Clean Minimal Table */
+        .line-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+        
+        .line-items-table th {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #777777;
+            border-bottom: 2px solid #eeeeee;
+            padding-bottom: 12px;
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .line-items-table td {
+            padding: 16px 0;
+            border-bottom: 1px solid #f4f4f4;
+            font-size: 13px;
+        }
+        
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        
+        .item-desc {
+            font-weight: bold;
+            color: #111111;
+        }
+        .item-meta {
+            color: #777777;
+        }
+
+        /* Summary Ledger Totals */
+        .summary-wrapper {
+            width: 100%;
+        }
+        .summary-inner {
+            width: 260px;
+            float: right;
+        }
+        
+        .summary-row {
+            width: 100%;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            font-size: 13px;
+        }
+        .summary-row.border-bottom {
+            border-bottom: 1px solid #eeeeee;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+        }
+        
+        .summary-label {
+            float: left;
+            color: #555555;
+        }
+        .summary-value {
+            float: right;
+            font-weight: bold;
+            color: #111111;
+        }
+        
+        .total-row {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            color: #111111;
+            padding-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-accent-bar"></div>
+
+    <div class="invoice-container">
+        
+        <div class="header-section clearfix">
+            <div class="header-left">
+                <h1 class="title">Invoice</h1>
+                <div class="invoice-number">#INV-{{ invoice.id|stringformat:"04d" }}</div>
+            </div>
+            <div class="header-right">
+                <div class="company-title">Charleen Africa</div>
+                <div class="company-subtitle">Invoicing Platform</div>
+            </div>
+        </div>
+
+        <div class="meta-section clearfix">
+            <div class="meta-left">
+                <div class="section-label">Billed To</div>
+                <div class="customer-name">{{ invoice.customer.name }}</div>
+                <div class="customer-details">
+                    {{ invoice.customer.email|default:"" }}<br>
+                    {% if invoice.customer.address %}
+                        <div>{{ invoice.customer.address }}</div>
+                    {% endif %}
+                    {% if invoice.customer.phone %}
+                        <div>{{ invoice.customer.phone }}</div>
+                    {% endif %}
+                    {% if invoice.customer.kra_pin %}
+                        <div class="kra-pin">PIN: {{ invoice.customer.kra_pin }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="meta-right">
+                <div class="section-label">Invoice Details</div>
+                <div class="meta-row">
+                    <span class="meta-key">Date Generated:</span>
+                    <span class="meta-value">{{ invoice.issue_date|date:"Y-m-d" }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-key">Status Mode:</span>
+                    <span class="status-badge">{{ invoice.status }}</span>
+                </div>
+            </div>
+        </div>
+
+        <table class="line-items-table">
+            <thead>
+                <tr>
+                    <th style="text-align: left; width: 50%;">Product Description</th>
+                    <th class="text-center" style="width: 15%;">Quantity</th>
+                    <th class="text-center" style="width: 15%;">Tax Rate</th>
+                    <th class="text-end" style="width: 20%;">Subtotal (Net)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in line_items %}
+                <tr>
+                    <td>
+                        <span class="item-desc">{{ item.product.name }}</span>
+                    </td>
+                    <td class="text-center item-meta">{{ item.quantity }}</td>
+                    <td class="text-center item-meta">{{ item.tax_rate }}%</td>
+                    <td class="text-end item-desc">KES {{ item.amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="summary-wrapper clearfix">
+            <div class="summary-inner">
+                <div class="summary-row clearfix">
+                    <span class="summary-label">Subtotal (Excl. Tax)</span>
+                    <span class="summary-value">KES {{ invoice.subtotal|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row border-bottom clearfix">
+                    <span class="summary-label">Tax Amount</span>
+                    <span class="summary-value">KES {{ invoice.tax_amount|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row total-row clearfix">
+                    <span class="summary-label" style="font-size: 14px; font-weight: 800;">Total Amount</span>
+                    <span class="summary-value" style="font-size: 16px;">KES {{ invoice.total_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 60px; border-top: 1px solid #eeeeee; padding-top: 30px; text-align: center;">
+            <span style="font-size: 15px; font-style: italic; font-weight: bold; color: #3b7a57;">
+                Thank you for your business! We appreciate your partnership.
+            </span>
+        </div>
+
+    </div>
+
+</body>
+</html>

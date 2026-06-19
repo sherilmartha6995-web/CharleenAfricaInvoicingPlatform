@@ -1,0 +1,67 @@
+{% extends "invoices/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="text-dark fw-bold m-0">Customers & Clients</h2>
+        <p class="text-muted m-0">Manage customer profile accounts and billing.</p>
+    </div>
+    <a href="{% url 'customer_add' %}" class="btn btn-primary fw-medium px-4">
+        Register New Customer
+    </a>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Customer Name</th>
+                        <th>Email Address</th>
+                        <th>Phone Number</th>
+                        <th>KRA PIN</th>
+                        <th>Address</th>
+                        <th class="pe-4 text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ customer.name }}</td>
+                        
+                        <td>{{ customer.email }}</td>
+                        
+                        <td>{{ customer.phone_number|default:"-" }}</td>
+                        
+                        <td>
+                            {% if customer.kra_pin %}
+                            <span class="badge bg-secondary font-monospace">{{ customer.kra_pin }}</span>
+                            {% else %}
+                            <span class="text-muted small">Not Provided</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td>{{ customer.address|default:"Not Provided" }}</td>
+                        
+                        <td class="pe-4 text-end">
+                            <div class="d-inline-flex gap-2">
+                                <a href="#" class="btn btn-sm btn-outline-primary fw-medium">Edit</a>
+                                <a href="#" class="btn btn-sm btn-outline-danger fw-medium">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            No registered customers found. Click "Register New Customer" to get started.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

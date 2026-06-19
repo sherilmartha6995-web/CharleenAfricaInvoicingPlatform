@@ -1,3 +1,176 @@
+import uuid
 from django.db import models
+from django.utils import timezone
 
-# Create your models here.
+class Customer(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=15)
+    kra_pin = models.CharField(max_length=11, blank=True, null=True)
+    address = models.TextField(blank=True, null=True) 
+
+    def __str__(self):
+        return self.name
+
+class Product(models.Model):
+    PRODUCT_TYPE_CHOICES = [
+        ('GOODS', 'Goods / Physical Product'),
+        ('SERVICE', 'Service / Consulting'),
+    ]
+
+    name = models.CharField(max_length=100)
+    sku = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    product_type = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES, default='GOODS')
+    stock_quantity = models.IntegerField(default=0)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=16.0)
+
+    def __str__(self):
+        return f"{self.name} ({self.sku if self.sku else 'No SKU'})"
+
+class Invoice(models.Model):
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('SUBMITTED', 'Submitted'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('UNPAID', 'Unpaid'),
+        ('PAID', 'Fully Paid'),
+    ]
+    
+    invoice_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    invoice_number = models.CharField(max_length=50, unique=True, blank=True)
+    customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='invoices')
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    issue_date = models.DateField(default=timezone.now)
+    due_date = models.DateField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='UNPAID')
+    kra_submission_id = models.CharField(max_length=100, blank=True, null=True)
+    email_sent = models.BooleanField(default=False)
+    printed = models.BooleanField(default=False)
+
+    def __str__(self):
+        customer_name = self.customer.name if hasattr(self.customer, 'name') else "Unknown Customer"
+        return f"{self.invoice_number or 'No Number'} - {customer_name}"
+
+    def calculate_totals(self):
+        totals = self.items.aggregate(
+            sum_subtotal=models.Sum('amount')
+        )
+        self.subtotal = totals['sum_subtotal'] or 0.0
+        
+        total_tax = 0.0
+        for item in self.items.all():
+            total_tax += float(item.amount) * (float(item.tax_rate) / 100.0)
+            
+        self.tax_amount = total_tax
+        self.total_amount = float(self.subtotal) + total_tax
+        
+        super().save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            last_invoice = Invoice.objects.order_by('id').last()
+            prefix = "INV-2026-"
+            
+            if last_invoice and last_invoice.invoice_number:
+                try:
+                    last_number_str = last_invoice.invoice_number.split('-')[-1]
+                    next_number = int(last_number_str) + 1
+                except (ValueError, IndexError):
+                    next_number = 1
+            else:
+                next_number = 1
+                
+            self.invoice_number = f"{prefix}{next_number:06d}"
+            
+        super().save(*args, **kwargs)
+
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('Product', on_delete=models.PROTECT, related_name='invoice_items')
+    quantity = models.IntegerField(default=1)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=16.0)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True)
+
+    def __str__(self):
+        return f"{self.product} (x{self.quantity})"
+
+    def save(self, *args, **kwargs):
+        if not self.amount and self.product:
+            self.amount = self.quantity * self.product.price
+            
+        super().save(*args, **kwargs)
+        self.invoice.calculate_totals()
+
+    def delete(self, *args, **kwargs):
+        parent_invoice = self.invoice
+        super().delete(*args, **kwargs)
+        parent_invoice.calculate_totals()
+    
+class CreditNote(models.Model):
+    credit_note_number = models.CharField(max_length=50, unique=True, blank=True)
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='credit_notes')
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    reason = models.TextField(help_text="Reason for issuing the credit note")
+    kra_submission_id = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if not self.credit_note_number:
+            last_cn = CreditNote.objects.order_by('id').last()
+            next_num = (int(last_cn.credit_note_number.split('-')[-1]) + 1) if last_cn else 1
+            self.credit_note_number = f"CN-2026-{next_num:06d}"
+        super().save(*args, **kwargs)
+
+class DebitNote(models.Model):
+    debit_note_number = models.CharField(max_length=50, unique=True, blank=True)
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='debit_notes')
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    reason = models.TextField()
+    kra_submission_id = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if not self.debit_note_number:
+            last_dn = DebitNote.objects.order_by('id').last()
+            next_num = (int(last_dn.debit_note_number.split('-')[-1]) + 1) if last_dn else 1
+            self.debit_note_number = f"DN-2026-{next_num:06d}"
+        super().save(*args, **kwargs)
+
+class Payment(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('MPESA', 'M-Pesa'),
+        ('BANK_TRANSFER', 'Bank Wire Transfer'),
+    ]
+
+    invoice = models.ForeignKey('Invoice', on_delete=models.PROTECT, related_name='payments')
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, default='MPESA')
+    transaction_reference = models.CharField(max_length=100, unique=True, help_text="e.g., M-Pesa transaction code or bank reference")
+    payment_date = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True, null=True, help_text="Any extra reconciliation info")
+
+    def __str__(self):
+        return f"Payment of Ksh {self.amount_paid} for {self.invoice.invoice_number}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.invoice.update_payment_status()
+
+    def delete(self, *args, **kwargs):
+        parent_invoice = self.invoice
+        super().delete(*args, **kwargs)
+        parent_invoice.update_payment_status()

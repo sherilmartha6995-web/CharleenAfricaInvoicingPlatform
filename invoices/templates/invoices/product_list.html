@@ -1,0 +1,62 @@
+{% extends 'invoices/base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark m-0">Sales Items</h2>
+            <p class="text-muted sm mb-0">and Services.</p>
+        </div>
+        <a href="{% url 'product_add' %}" class="btn btn-primary fw-medium px-4">
+            <i class="bi bi-plus-lg me-1"></i> Register New Item
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase font-monospace small">
+                    <tr>
+                        <th class="ps-4">Item Name</th>
+                        <th>SKU</th>
+                        <th>Type</th>
+                        <th>Price (Ksh)</th>
+                        <th>Tax Rate</th>
+                        <th class="pe-4 text-end">Stock quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td class="fw-semibold text-dark ps-4">{{ product.name }}</td>
+                        <td><code class="text-secondary bg-light px-2 py-1 rounded">{{ product.sku|default:"N/A" }}</code></td>
+                        <td>
+                            {% if product.product_type == 'GOODS' %}
+                                <span class="badge bg-info-subtle text-info px-2.5 py-1">physical Product</span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning px-2.5 py-1">Service / Consulting</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold text-dark">Ksh {{ product.price }}</td>
+                        <td class="text-muted">{{ product.tax_rate }}%</td>
+                        <td class="pe-4 text-end fw-medium {% if product.stock_quantity < 5 and product.product_type == 'GOODS' %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                            {% if product.product_type == 'GOODS' %}
+                                {{ product.stock_quantity }} units
+                            {% else %}
+                                <span class="text-muted italic">Infinite (Service)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-box-seam display-6 d-block mb-3 opacity-50"></i>
+                            No sales items registered yet. Click "Register New Item".
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
