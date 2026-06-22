@@ -1,4 +1,6 @@
 from django import forms
+from django.forms.widgets import Select
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import Product, Customer, Invoice, InvoiceItem
 
 class ProductForm(forms.ModelForm):
@@ -42,12 +44,35 @@ class InvoiceForm(forms.ModelForm):
 InvoiceItemFormSet = forms.inlineformset_factory(
     Invoice,
     InvoiceItem,
-    fields=['product', 'quantity', 'tax_rate'],
+    fields=['product', 'quantity', 'amount', 'tax_rate'],
     extra=1,
     can_delete=True,
     widgets={
-        'product': forms.Select(attrs={'class': 'form-select'}),
-        'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-        'tax_rate': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        'product': forms.Select(attrs={'class': 'form-control product-select'}),
+        'quantity': forms.NumberInput(attrs={'class': 'form-control quantity-input', 'min': '1'}),
+        'amount': forms.NumberInput(attrs={'class': 'form-control amount-input', 'readonly': 'readonly'}),
+        'tax_rate': forms.NumberInput(attrs={'class': 'form-control tax-rate-input', 'step': '0.01'}),
     }
 )
+
+
+class CustomUserCreationForm(UserCreationForm):
+    def _init_(self, *args, **kwargs):
+        super()._init_(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control'})
+
+class CustomAuthenticationForm(AuthenticationForm):
+    def _init_(self, *args, **kwargs):
+        super()._init_(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control'})
+
+class ProductSelectWidget(Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            product = value.instance 
+            option['attrs']['data-price'] = str(product.price)
+            option['attrs']['data-tax'] = str(product.tax_rate) 
+        return option            

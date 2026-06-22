@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
+from . import views
 from .views import ProductCreateView, ProductListView, CustomerListView, CustomerCreateView,InvoiceListView, invoice_create_view, invoice_detail_view, invoice_pdf_view
 
 urlpatterns = [
@@ -13,4 +15,7 @@ urlpatterns = [
     path('invoices/<int:pk>/pdf/', invoice_pdf_view, name='invoice_pdf'),
     path('invoice/<int:invoice_id>/send-email/', views.send_invoice_email_view, name='send_invoice_email'),
     path('invoice/<int:pk>/pdf/', views.invoice_pdf_view, name='invoice_pdf'),
+    path('register/', views.register_view, name='register'),
+    path('login/', auth_views.LoginView.as_view(template_name='invoices/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
 ]

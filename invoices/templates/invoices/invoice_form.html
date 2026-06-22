@@ -43,59 +43,68 @@
         </div>
 
         <div class="card border-0 mb-4 shadow-sm bg-white">
-        <div class="card-body p-4">
-            <h5 class="text-dark fw-bold mb-3">Line Items</h5>
-            
-            {{ formset.management_form }}
-            {{ formset.non_form_errors }}
+            <div class="card-body p-4">
+                <h5 class="text-dark fw-bold mb-3">Line Items</h5>
+                
+                {{ formset.management_form }}
+                {{ formset.non_form_errors }}
 
-            <div class="table-responsive">
-                <table class="table align-middle mb-0" id="invoiceItemsTable">
-                    <thead class="table-light text-uppercase">
-                        <tr>
-                            <th scope="col" style="width: 55%;">Description</th>
-                            <th scope="col" style="width: 15%;">Quantity</th>
-                            <th scope="col" style="width: 20%;">Unit Price</th>
-                            <th scope="col" style="width: 10%;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for form in formset.forms %}
-                        <tr class="line-item-row">
-                            {% for hidden in form.hidden_fields %}
-                                {{ hidden }}
+                {% if formset.errors %}
+                <div class="alert alert-danger">
+                    <strong>Please correct the errors below:</strong>
+                    <ul>
+                        {% for dict in formset.errors %}
+                            {% for error in dict.values %}
+                                <li>{{ error }}</li>
                             {% endfor %}
-                            {{ form.non_field_errors }}
-                            
-                            <td>
-                                {{ form.description }}
-                                {{ form.description.errors }}
-                            </td>
-                            <td>
-                                {{ form.quantity }}
-                                {{ form.quantity.errors }}
-                            </td>
-                            <td>
-                                {{ form.unit_price }}
-                                {{ form.unit_price.errors }}
-                            </td>
-                            <td>
-                                {% if formset.can_delete %}
-                                    <div class="form-check form-switch">
-                                        {{ form.DELETE }}
-                                        <label class="form-check-label" for="{{ form.DELETE.auto_id }}">Remove</label>
-                                    </div>
-                                {% endif %}
-                            </td>
-                        </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0" id="invoiceItemsTable">
+                        <thead class="table-light text-uppercase">
+                            <tr>
+                                <th scope="col" style="width: 40%;">Product / Item</th>
+                                <th scope="col" style="width: 15%;">Quantity</th>
+                                <th scope="col" style="width: 15%;">Amount</th>
+                                <th scope="col" style="width: 15%;">Tax Rate (%)</th>
+                                <th scope="col" style="width: 15%;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form in formset.forms %}
+                            <tr class="line-item-row">
+                                {% for hidden in form.hidden_fields %}
+                                    {{ hidden }}
+                                {% endfor %}
+                                {{ form.non_field_errors }}
+                                
+                                <td>
+                                    <div class="mb-2">{{ form.product }}</div>
+                                    <div class="metric-output-pane p-2 border rounded bg-light" style="color: #cccccc !important; font-size: 14px; font-weight: 500;">Select an item...</div>
+                                </td>
+                                <td>{{ form.quantity }}</td>
+                                <td>{{ form.amount }}</td>
+                                <td>{{ form.tax_rate }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="display: none;">
+                                            {{ form.DELETE }}
+                                        </div>
+                                        <button type="button" class="btn btn-danger btn-sm delete-row-btn">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button type="button" class="btn btn-outline-secondary mt-3" id="add-line-btn">Add Line Item</button>
             </div>
-            
-            <button type="button" class="btn btn-outline-secondary mt-3" id="add-line-item">+ Add Line Item</button>
         </div>
-    </div>
 
         <div class="d-flex justify-content-end gap-3 mb-5">
             <a href="{% url 'invoice_list' %}" class="btn btn-light px-4">Cancel</a>
@@ -104,87 +113,146 @@
     </form>
 </div>
 
-<script type="javascript">
-function executeRowAddition(event) {
-    if (event) event.preventDefault();
-    console.log("Adding new inline formset row item...");
-    
-    var tableBody = document.querySelector('#invoiceItemsTable tbody');
-    var currentRows = document.querySelectorAll('.item-row');
-    var totalFormsInput = document.querySelector('input[id$="-TOTAL_FORMS"]');
-    
-    if (tableBody && currentRows.length > 0 && totalFormsInput) {
-        var formCount = currentRows.length;
-        var formPrefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
-        
-        var targetBlueprint = currentRows[0];
-        var replicatedClone = targetBlueprint.cloneNode(true);
-        
-        replicatedClone.querySelectorAll('input, select').forEach(function(input) {
-            if (input.type === 'checkbox') {
-                input.checked = false;
-            } else if (input.tagName === 'SELECT') {
-                input.selectedIndex = 0;
-            } else {
-                input.value = input.defaultValue || '';
-                if (input.classList.contains('quantity-input') || input.name.includes('quantity')) {
-                    input.value = '1';
-                }
-            }
-            
-            var nameSearchRegex = new RegExp(formPrefix + '-0-');
-            var idSearchRegex = new RegExp('id_' + formPrefix + '-0-');
-            
-            if (input.name) {
-                input.name = input.name.replace(nameSearchRegex, formPrefix + '-' + formCount + '-');
-            }
-            if (input.id) {
-                input.id = input.id.replace(idSearchRegex, 'id_' + formPrefix + '-' + formCount + '-');
-            }
-        });
-        
-        tableBody.appendChild(replicatedClone);
-        
-        totalFormsInput.value = formCount + 1;
-        console.log("Formset inline row appended successfully.");
-    } else {
-        console.error("Could not trace management metadata objects inside DOM arrays.");
-    }
-}
-
-function executeRowRemoval(buttonElement, event) {
-    if (event) event.preventDefault();
-    
-    var tableBody = document.querySelector('#invoiceItemsTable tbody');
-    var totalActiveLines = document.querySelectorAll('.item-row');
-    var totalFormsInput = document.querySelector('input[id$="-TOTAL_FORMS"]');
-    
-    if (totalActiveLines.length > 1) {
-        var rowToRemove = buttonElement.closest('.item-row');
-        rowToRemove.remove();
-        
-        var updatedRows = document.querySelectorAll('.item-row');
-        if (totalFormsInput) {
-            totalFormsInput.value = updatedRows.length;
-            var formPrefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
-            
-            updatedRows.forEach(function(row, index) {
-                row.querySelectorAll('input, select').forEach(function(input) {
-                    var nameRegex = new RegExp(formPrefix + '-\\d+-');
-                    var idRegex = new RegExp('id_' + formPrefix + '-\\d+-');
-                    
-                    if (input.name) {
-                        input.name = input.name.replace(nameRegex, formPrefix + '-' + index + '-');
-                    }
-                    if (input.id) {
-                        input.id = input.id.replace(idRegex, 'id_' + formPrefix + '-' + index + '-');
-                    }
-                });
-            });
-        }
-    } else {
-        alert("An invoice requires at least one active product line item.");
-    }
-}
+<script type="text/template" id="empty-form-template">
+    <tr class="line-item-row">
+        {{ formset.empty_form.id }}
+        <td>
+            <div class="mb-2">{{ formset.empty_form.product }}</div>
+            <div class="metric-output-pane p-2 border rounded bg-light" style="color: #cccccc !important; font-size: 14px; font-weight: 500;">Select an item...</div>
+        </td>
+        <td>{{ formset.empty_form.quantity }}</td>
+        <td>{{ formset.empty_form.amount }}</td>
+        <td>{{ formset.empty_form.tax_rate }}</td>
+        <td>
+            <div class="d-flex align-items-center gap-2">
+                <div style="display: none;">
+                    <input type="checkbox" name="form-_prefix-DELETE" class="form-check-input" id="id_form-prefix_-DELETE">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm delete-row-btn">Delete</button>
+            </div>
+        </td>
+    </tr>
 </script>
-{% endblock %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var tableBody = document.querySelector('#invoiceItemsTable tbody');
+    var totalFormsInput = document.querySelector('input[id$="-TOTAL_FORMS"]');
+    var emptyFormTemplate = document.getElementById('empty-form-template');
+
+    function calculateRowLiveMetrics(inputSource) {
+        var surroundingRow = inputSource.closest('.line-item-row');
+        if (!surroundingRow) return;
+        
+        var selectedProductSelect = surroundingRow.querySelector('.product-select');
+        var numericQtyField = surroundingRow.querySelector('.quantity-input');
+        var amountField = surroundingRow.querySelector('.amount-input');
+        var taxRateField = surroundingRow.querySelector('.tax-rate-input');
+        var targetMetricDisplay = surroundingRow.querySelector('.metric-output-pane');
+        
+        if (!selectedProductSelect || !numericQtyField || !taxRateField || !targetMetricDisplay) return;
+        
+        var activeOption = selectedProductSelect.options[selectedProductSelect.selectedIndex];
+        
+        if (activeOption && activeOption.value) {
+            var baseItemCost = parseFloat(activeOption.getAttribute('data-price')) || 0;
+            var dynamicTaxRate = parseFloat(taxRateField.value) || 0;
+            var volumeAmount = parseInt(numericQtyField.value) || 1;
+            
+            var calculatedBaseAmount = baseItemCost * volumeAmount;
+            if (amountField) {
+                amountField.value = calculatedBaseAmount.toFixed(2);
+            }
+
+            var calculatedRowTax = calculatedBaseAmount * (dynamicTaxRate / 100);
+            var grossRowTotal = calculatedBaseAmount + calculatedRowTax;
+            
+            targetMetricDisplay.innerHTML = '<strong style="color: #212529 !important; font-size: 16px;">KES ' + grossRowTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</strong><br><small style="color: #008000 !important; font-weight: 600;">Includes ' + dynamicTaxRate + '% Tax</small>';
+            targetMetricDisplay.style.borderColor = '#008000';
+        } else {
+            if (amountField) amountField.value = '';
+            targetMetricDisplay.setAttribute('style', 'color: #cccccc !important; font-size: 14px; font-weight: 500; border-color: #ced4da !important;');
+            targetMetricDisplay.innerHTML = 'Select an item...';
+        }
+    }
+
+    function executeRowAddition(event) {
+        if (event) event.preventDefault();
+        
+        if (tableBody && totalFormsInput && emptyFormTemplate) {
+            var formCount = document.querySelectorAll('.line-item-row').length;
+            var emptyFormHtml = emptyFormTemplate.innerHTML.replace(/_prefix_/g, formCount);
+            
+            var tempContainer = document.createElement('tbody');
+            tempContainer.innerHTML = emptyFormHtml;
+            
+            var newRow = tempContainer.firstElementChild;
+            if (newRow) {
+                var productSelect = newRow.querySelector('.product-select');
+                var quantityInput = newRow.querySelector('.quantity-input');
+                var taxRateInput = newRow.querySelector('.tax-rate-input');
+                var deleteBtn = newRow.querySelector('.delete-row-btn');
+                
+                if (productSelect) {
+                    productSelect.addEventListener('change', function() { calculateRowLiveMetrics(this); });
+                }
+                if (quantityInput) {
+                    quantityInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
+                }
+                if (taxRateInput) {
+                    taxRateInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
+                }
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', function(e) { executeRowRemoval(this, e); });
+                }
+
+                tableBody.appendChild(newRow);
+                totalFormsInput.value = formCount + 1;
+            }
+        } else {
+            console.error("Could not locate table body, TOTAL_FORMS input, or empty form template.");
+        }
+    }
+
+    function executeRowRemoval(buttonElement, event) {
+        if (event) event.preventDefault();
+        
+        var totalActiveLines = document.querySelectorAll('.line-item-row');
+
+        if (totalActiveLines.length > 1) {
+            buttonElement.closest('.line-item-row').remove();
+            if (totalFormsInput) {
+                totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+            }
+        } else {
+            alert("Your invoice layout ledger requires at least one product line item.");
+        }
+    }
+
+    var addLineBtn = document.getElementById('add-line-btn');
+    if (addLineBtn) {
+        addLineBtn.addEventListener('click', executeRowAddition);
+    }
+
+    document.querySelectorAll('.line-item-row').forEach(function(row) {
+        var productSelect = row.querySelector('.product-select');
+        var quantityInput = row.querySelector('.quantity-input');
+        var taxRateInput = row.querySelector('.tax-rate-input');
+        var deleteBtn = row.querySelector('.delete-row-btn');
+
+        if (productSelect) {
+            productSelect.addEventListener('change', function() { calculateRowLiveMetrics(this); });
+        }
+        if (quantityInput) {
+            quantityInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
+        }
+        if (taxRateInput) {
+            taxRateInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
+        }
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function(e) { executeRowRemoval(this, e); });
+        }
+    });
+});
+</script>
+{% endblock content %}

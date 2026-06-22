@@ -10,6 +10,7 @@ from django.db import transaction
 from .utils import email_invoice_to_customer
 from django.core.mail import EmailMessage
 from django.contrib import messages
+from django.contrib.auth.forms import UserCreationForm
 from .models import Product, Customer, Invoice, InvoiceItem
 from django.forms import inlineformset_factory
 from .forms import ProductForm, CustomerForm, InvoiceForm, InvoiceItemFormSet
@@ -100,21 +101,27 @@ LineItemFormSet = inlineformset_factory(
 )
 
 def invoice_detail_view(request, pk):
-   
     invoice = get_object_or_404(Invoice, pk=pk)
     
     if request.method == 'POST':
-        invoice_form = InvoiceForm(request.POST, instance=invoice)
-        formset = LineItemFormSet(request.POST, request.FILES, instance=invoice)
+        invoice_form = InvoiceForm(request.POST, request.FILES, instance=invoice)
+        formset = InvoiceItemFormSet(request.POST, request.FILES, instance=invoice, prefix='form')
         
         if invoice_form.is_valid() and formset.is_valid():
+            print("--- VALIDATION PASSED, COMMITTING TO DB ---")
             invoice_form.save()
-            formset.save()
+            formset.instance = invoice
+            formset.save() 
             return redirect('invoice_detail', pk=invoice.pk)
-   
+        else:
+            print("--- INVOICE FORM SUBMISSION FAILED ---")
+            print("Invoice Form Errors:", invoice_form.errors)
+            print("Formset Errors:", formset.errors)
+            print("Formset Non-Form Errors:", formset.non_form_errors())
+            print("---------------------------------------")
     else:
         invoice_form = InvoiceForm(instance=invoice)
-        formset = LineItemFormSet(instance=invoice)
+        formset = InvoiceItemFormSet(instance=invoice, prefix='form')
         
     context = {
         'invoice': invoice,
@@ -122,9 +129,8 @@ def invoice_detail_view(request, pk):
         'formset': formset,
     }
     return render(request, 'invoices/invoice_detail.html', context)
-
+                  
 def compile_pdf_with_playwright(html_content):
-    """Helper function to generate PDF using headless Chromium"""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
@@ -192,3 +198,16 @@ def send_invoice_email_view(request, invoice_id):
         messages.error(request, f"Encountered systemic fault routing email dispatch: {str(e)}")
 
     return redirect('invoice_detail', pk=invoice.id)
+
+def register_view(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Account created successfully! You can now log in.')
+            return redirect('login')
+    else:
+        form = UserCreationForm()
+        
+    context = {'form': form}
+    return render(request, 'invoices/register.html', context)
