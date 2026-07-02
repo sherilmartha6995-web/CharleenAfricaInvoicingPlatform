@@ -1,12 +1,27 @@
 import uuid
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
+
+class BusinessProfile(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='businesses')
+    business_name = models.CharField(max_length=100)
+    kra_pin = models.CharField(max_length=11,unique=True)
+    is_vat_registered = models.BooleanField(default=True, verbose_name="VAT Registered")
+    address = models.TextField()
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20)
+    created_at = models.DateTimeField(default=timezone.now) 
+
+    def _str_(self):
+        return self.business_name
 
 class Customer(models.Model):
+    business = models.ForeignKey(BusinessProfile, on_delete=models.PROTECT, blank=True, null=True, related_name='customers')
     name = models.CharField(max_length=100)
     email = models.EmailField()
     phone_number = models.CharField(max_length=15)
-    kra_pin = models.CharField(max_length=11, blank=True, null=True)
+    kra_pin = models.CharField(max_length=11, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True) 
 
     def __str__(self):
@@ -14,17 +29,22 @@ class Customer(models.Model):
 
 class Product(models.Model):
     PRODUCT_TYPE_CHOICES = [
-        ('GOODS', 'Goods / Physical Product'),
-        ('SERVICE', 'Service / Consulting'),
+        ('GOODS', 'goods'),
+        ('SERVICE', 'Service'),
     ]
 
     name = models.CharField(max_length=100)
+    business =  models.ForeignKey(BusinessProfile,  on_delete=models.PROTECT, blank=True, null=True, related_name='products')
     sku = models.CharField(max_length=100, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     product_type = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES, default='GOODS')
     stock_quantity = models.IntegerField(default=0)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=16.0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('business', 'sku') 
 
     def __str__(self):
         return f"{self.name} ({self.sku if self.sku else 'No SKU'})"
@@ -41,6 +61,7 @@ class Invoice(models.Model):
         ('PAID', 'Fully Paid'),
     ]
     
+    business = models.ForeignKey('BusinessProfile', on_delete=models.PROTECT,  related_name='invoices', null=True, blank=True)
     invoice_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     invoice_number = models.CharField(max_length=50, unique=True, blank=True)
     customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='invoices')
@@ -95,7 +116,7 @@ class Invoice(models.Model):
 
 
 class InvoiceItem(models.Model):
-    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='items')
     product = models.ForeignKey('Product', on_delete=models.PROTECT, related_name='invoice_items')
     quantity = models.IntegerField(default=1)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=16.0)
@@ -122,7 +143,7 @@ class CreditNote(models.Model):
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    reason = models.TextField(help_text="Reason for issuing the credit note")
+    reason = models.TextField()
     kra_submission_id = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -153,13 +174,12 @@ class DebitNote(models.Model):
 class Payment(models.Model):
     PAYMENT_METHOD_CHOICES = [
         ('MPESA', 'M-Pesa'),
-        ('BANK_TRANSFER', 'Bank Wire Transfer'),
     ]
 
     invoice = models.ForeignKey('Invoice', on_delete=models.PROTECT, related_name='payments')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, default='MPESA')
-    transaction_reference = models.CharField(max_length=100, unique=True, help_text="e.g., M-Pesa transaction code or bank reference")
+    transaction_reference = models.CharField(max_length=100, unique=True)
     payment_date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True, null=True, help_text="Any extra reconciliation info")
 

@@ -4,10 +4,7 @@ from django.conf import settings
 import os
 
 def email_invoice_to_customer(invoice, pdf_path):
-    """
-    Assembles and dispatches an email to the customer with the invoice PDF attached.
-    """
-    subject = f"Official Invoice #{invoice.id:04d} - Charleen Africa Invoicing"
+    subject = f"Official Invoice #{invoice.id:05d} - Charleen Africa Invoicing"
     
     context = {
         'invoice': invoice,
@@ -25,6 +22,6 @@ def email_invoice_to_customer(invoice, pdf_path):
     
     if os.path.exists(pdf_path):
         with open(pdf_path, 'rb') as f:
-            email.attach(f"invoice_{invoice.id:04d}.pdf", f.read(), 'application/pdf')
+            email.attach(f"invoice_{invoice.id:06d}.pdf", f.read(), 'application/pdf')
             
     email.send()

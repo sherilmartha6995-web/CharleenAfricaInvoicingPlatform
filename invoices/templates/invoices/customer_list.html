@@ -47,8 +47,9 @@
                         
                         <td class="pe-4 text-end">
                             <div class="d-inline-flex gap-2">
-                                <a href="#" class="btn btn-sm btn-outline-primary fw-medium">Edit</a>
-                                <a href="#" class="btn btn-sm btn-outline-danger fw-medium">Delete</a>
+                                <a href="{% url 'customer_edit' customer.pk %}" class="btn btn-sm btn-outline-primary fw-medium">Edit</a>
+        
+                                <a href="{% url 'customer_delete' customer.pk %}" class="btn btn-sm btn-outline-danger fw-medium">Delete</a>
                             </div>
                         </td>
                     </tr>

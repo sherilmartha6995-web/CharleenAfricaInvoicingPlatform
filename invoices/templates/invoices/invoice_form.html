@@ -102,7 +102,7 @@
                     </table>
                 </div>
                 
-                <button type="button" class="btn btn-outline-secondary mt-3" id="add-line-btn">Add Line Item</button>
+                <button type="button" class="btn btn-outline-secondary mt-3" id="add-line-btn" onclick="executeRowAddition(event)">Add Line Item</button>
             </div>
         </div>
 
@@ -117,142 +117,155 @@
     <tr class="line-item-row">
         {{ formset.empty_form.id }}
         <td>
-            <div class="mb-2">{{ formset.empty_form.product }}</div>
-            <div class="metric-output-pane p-2 border rounded bg-light" style="color: #cccccc !important; font-size: 14px; font-weight: 500;">Select an item...</div>
+            {{ formset.empty_form.product }}
+            <div class="metric-output-pane p-2 border rounded bg-light mt-1" style="color: #cccccc !important; font-size: 0.875rem;">Select an item...</div>
         </td>
-        <td>{{ formset.empty_form.quantity }}</td>
-        <td>{{ formset.empty_form.amount }}</td>
-        <td>{{ formset.empty_form.tax_rate }}</td>
+        <td>
+            {{ formset.empty_form.quantity }}
+        </td>
+        <td>
+            {{ formset.empty_form.amount }}
+        </td>
+        <td>
+            {{ formset.empty_form.tax_rate }}
+        </td>
         <td>
             <div class="d-flex align-items-center gap-2">
                 <div style="display: none;">
-                    <input type="checkbox" name="form-_prefix-DELETE" class="form-check-input" id="id_form-prefix_-DELETE">
+                   <input type="checkbox" name="items-_prefix-DELETE" class="form-check-input" id="id_items-prefix_-DELETE">
                 </div>
-                <button type="button" class="btn btn-danger btn-sm delete-row-btn">Delete</button>
+                <button type="button" class="btn btn-danger btn-sm delete-row-btn" onclick="executeRowRemoval(this, event)">Delete</button>
             </div>
         </td>
     </tr>
 </script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var tableBody = document.querySelector('#invoiceItemsTable tbody');
-    var totalFormsInput = document.querySelector('input[id$="-TOTAL_FORMS"]');
-    var emptyFormTemplate = document.getElementById('empty-form-template');
+<script type="application/json" id="product-prices-data">{{ product_prices_json|safe }}</script>
 
-    function calculateRowLiveMetrics(inputSource) {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    var pricesScript = document.getElementById('product-prices-data');
+    var productPrices = {};
+    if (pricesScript) {
+        try {
+            productPrices = JSON.parse(pricesScript.textContent || pricesScript.innerText);
+        } catch (e) {
+            console.error("Failed to parse product prices:", e);
+        }
+    }
+
+    window.calculateRowLiveMetrics = function(inputSource) {
         var surroundingRow = inputSource.closest('.line-item-row');
         if (!surroundingRow) return;
         
-        var selectedProductSelect = surroundingRow.querySelector('.product-select');
-        var numericQtyField = surroundingRow.querySelector('.quantity-input');
-        var amountField = surroundingRow.querySelector('.amount-input');
-        var taxRateField = surroundingRow.querySelector('.tax-rate-input');
-        var targetMetricDisplay = surroundingRow.querySelector('.metric-output-pane');
-        
-        if (!selectedProductSelect || !numericQtyField || !taxRateField || !targetMetricDisplay) return;
-        
-        var activeOption = selectedProductSelect.options[selectedProductSelect.selectedIndex];
-        
-        if (activeOption && activeOption.value) {
-            var baseItemCost = parseFloat(activeOption.getAttribute('data-price')) || 0;
-            var dynamicTaxRate = parseFloat(taxRateField.value) || 0;
-            var volumeAmount = parseInt(numericQtyField.value) || 1;
-            
-            var calculatedBaseAmount = baseItemCost * volumeAmount;
-            if (amountField) {
-                amountField.value = calculatedBaseAmount.toFixed(2);
-            }
+        var productSelect = surroundingRow.querySelector('.product-select');
+        var quantityInput = surroundingRow.querySelector('.quantity-input');
+        var amountInput = surroundingRow.querySelector('.amount-input');
+        var metricPane = surroundingRow.querySelector('.metric-output-pane');
 
-            var calculatedRowTax = calculatedBaseAmount * (dynamicTaxRate / 100);
-            var grossRowTotal = calculatedBaseAmount + calculatedRowTax;
-            
-            targetMetricDisplay.innerHTML = '<strong style="color: #212529 !important; font-size: 16px;">KES ' + grossRowTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</strong><br><small style="color: #008000 !important; font-weight: 600;">Includes ' + dynamicTaxRate + '% Tax</small>';
-            targetMetricDisplay.style.borderColor = '#008000';
-        } else {
-            if (amountField) amountField.value = '';
-            targetMetricDisplay.setAttribute('style', 'color: #cccccc !important; font-size: 14px; font-weight: 500; border-color: #ced4da !important;');
-            targetMetricDisplay.innerHTML = 'Select an item...';
+        if (quantityInput && (quantityInput.value === "" || parseFloat(quantityInput.value) <= 0)) {
+            quantityInput.value = 1;
         }
-    }
 
-    function executeRowAddition(event) {
-        if (event) event.preventDefault();
-        
-        if (tableBody && totalFormsInput && emptyFormTemplate) {
-            var formCount = document.querySelectorAll('.line-item-row').length;
-            var emptyFormHtml = emptyFormTemplate.innerHTML.replace(/_prefix_/g, formCount);
-            
-            var tempContainer = document.createElement('tbody');
-            tempContainer.innerHTML = emptyFormHtml;
-            
-            var newRow = tempContainer.firstElementChild;
-            if (newRow) {
-                var productSelect = newRow.querySelector('.product-select');
-                var quantityInput = newRow.querySelector('.quantity-input');
-                var taxRateInput = newRow.querySelector('.tax-rate-input');
-                var deleteBtn = newRow.querySelector('.delete-row-btn');
-                
-                if (productSelect) {
-                    productSelect.addEventListener('change', function() { calculateRowLiveMetrics(this); });
-                }
-                if (quantityInput) {
-                    quantityInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
-                }
-                if (taxRateInput) {
-                    taxRateInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
-                }
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', function(e) { executeRowRemoval(this, e); });
-                }
+        var productId = productSelect ? productSelect.value : "";
+        var price = 0;
 
-                tableBody.appendChild(newRow);
-                totalFormsInput.value = formCount + 1;
-            }
-        } else {
-            console.error("Could not locate table body, TOTAL_FORMS input, or empty form template.");
+        if (productId && productPrices[productId] !== undefined) {
+            price = parseFloat(productPrices[productId]) || 0;
         }
-    }
 
-    function executeRowRemoval(buttonElement, event) {
-        if (event) event.preventDefault();
-        
-        var totalActiveLines = document.querySelectorAll('.line-item-row');
+        var quantity = parseFloat(quantityInput.value) || 1;
 
-        if (totalActiveLines.length > 1) {
-            buttonElement.closest('.line-item-row').remove();
-            if (totalFormsInput) {
-                totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+        if (metricPane) {
+            if (price > 0) {
+                metricPane.innerText = "Unit Price: KES " + price.toFixed(2);
+            } else {
+                metricPane.innerText = "Select an item...";
             }
-        } else {
-            alert("Your invoice layout ledger requires at least one product line item.");
         }
-    }
 
-    var addLineBtn = document.getElementById('add-line-btn');
-    if (addLineBtn) {
-        addLineBtn.addEventListener('click', executeRowAddition);
+        if (amountInput) {
+            var result = price * quantity;
+            amountInput.value = isNaN(result) ? "" : result.toFixed(2);
+        }
+    };
+
+    function attachRowEventListeners(row) {
+        var productSelect = row.querySelector('.product-select');
+        var quantityInput = row.querySelector('.quantity-input');
+
+        if (productSelect) {
+            productSelect.addEventListener('change', function() { 
+                calculateRowLiveMetrics(this); 
+            });
+        }
+        if (quantityInput) {
+            // Using 'input' fires instantly on keystrokes and spinner arrows
+            quantityInput.addEventListener('input', function() { 
+                calculateRowLiveMetrics(this); 
+            });
+        }
     }
 
     document.querySelectorAll('.line-item-row').forEach(function(row) {
-        var productSelect = row.querySelector('.product-select');
-        var quantityInput = row.querySelector('.quantity-input');
-        var taxRateInput = row.querySelector('.tax-rate-input');
-        var deleteBtn = row.querySelector('.delete-row-btn');
-
-        if (productSelect) {
-            productSelect.addEventListener('change', function() { calculateRowLiveMetrics(this); });
-        }
-        if (quantityInput) {
-            quantityInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
-        }
-        if (taxRateInput) {
-            taxRateInput.addEventListener('input', function() { calculateRowLiveMetrics(this); });
-        }
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', function(e) { executeRowRemoval(this, e); });
+        attachRowEventListeners(row);
+        var selectEl = row.querySelector('.product-select');
+        if (selectEl && selectEl.selectedIndex > 0) {
+            calculateRowLiveMetrics(selectEl);
         }
     });
+
+    window.executeRowAddition = function(event) {
+        if (event) event.preventDefault();
+
+        var tableBody = document.querySelector('#invoiceItemsTable tbody'); 
+        var totalFormsInput = document.getElementById('id_items-TOTAL_FORMS'); 
+        var emptyFormTemplate = document.getElementById('empty-form-template');
+
+        if (tableBody && totalFormsInput && emptyFormTemplate) {
+            var formCount = parseInt(totalFormsInput.value, 10);
+            
+            var emptyFormHtml = emptyFormTemplate.innerHTML.replace(/_prefix_/g, formCount);
+            var tempContainer = document.createElement('tr');
+            tempContainer.innerHTML = emptyFormHtml.trim();
+            
+            var newRow = tempContainer.firstElementChild;
+            if (!newRow || newRow.tagName.toLowerCase() !== 'tr') {
+                newRow = tempContainer;
+            }
+
+            if (!newRow.classList.contains('line-item-row')) {
+                newRow.classList.add('line-item-row');
+            }
+
+            attachRowEventListeners(newRow);
+
+            var qtyInput = newRow.querySelector('.quantity-input');
+            if (qtyInput) {
+                qtyInput.value = 1;
+                calculateRowLiveMetrics(qtyInput);
+            }
+            
+            tableBody.appendChild(newRow);
+            
+            totalFormsInput.value = formCount + 1;
+        }
+    };
+
+    window.executeRowRemoval = function(buttonElement, event) {
+        if (event) event.preventDefault();
+        var row = buttonElement.closest('.line-item-row');
+        if (!row) return;
+
+        var deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (deleteCheckbox) {
+            deleteCheckbox.checked = true;
+            row.style.display = 'none'; 
+        } else {
+            row.remove();
+        }
+    };
 });
 </script>
 {% endblock content %}

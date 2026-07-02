@@ -26,12 +26,14 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="h4 mb-0 text-dark fw-bold">Review Invoice Ledger</h2>
-            <p class="text-muted small mb-0">Unified workflow dashboard preview.</p>
+            <h2 class="h4 mb-0 text-dark fw-bold">Invoice Ledger</h2>
+            <p class="text-muted small mb-0">Unified workflow dashboard.</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{% url 'create_credit_note' invoice.id %}" class="btn btn-warning btn-sm">Create Credit Note</a>
+            <a href="{% url 'create_debit_note' invoice.id %}" class="btn btn-info btn-sm">Create Debit Note</a>
             <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary btn-sm px-3">
-                Back to Ledger List
+                Back to Ledger 
             </a>
             
             <a href="{% url 'invoice_pdf' invoice.id %}" target="_blank" class="btn btn-success btn-sm px-4 shadow-sm fw-medium">
@@ -52,11 +54,14 @@
             <div class="row align-items-start mb-5 g-3">
                 <div class="col-sm-6">
                     <h1 class="text-dark fw-bold mb-1 text-uppercase tracking-tight" style="font-size: 2rem;">Invoice</h1>
-                    <span class="fs-6 text-muted fw-medium">#INV-{{ invoice.id|stringformat:"04d" }}</span>
+                    <span class="fs-6 text-muted fw-medium">INV-{{ invoice.id|stringformat:"04d" }}</span>
                 </div>
                 <div class="col-sm-6 text-sm-end">
                     <h2 class="h4 text-dark fw-bold mb-1">Charleen Africa</h2>
-                    <span class="small text-muted text-uppercase tracking-wider">Invoicing Platform</span>
+                    <span class="small text-muted text-uppercase tracking-wider">Invoicing Platform</span><br>
+                    <span class="small text-muted text-lowercase tracking-wider">charleenafrica@gmail.com</span><br>
+                    <span class="small text-muted text-lowercase tracking-wider">Kenya.</span><br>
+                    
                 </div>
             </div>
 
@@ -99,7 +104,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in line_items %}
+                        {% for item in invoice.items.all %}
                         <tr class="border-bottom border-light">
                             <td class="ps-0 py-3 fw-bold text-dark">{{ item.product.name }}</td>
                             <td class="text-center py-3 text-secondary">{{ item.quantity }}</td>

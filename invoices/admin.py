@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Product, Invoice, InvoiceItem, CreditNote, DebitNote, Payment
+from .models import Customer, Product, Invoice, InvoiceItem, CreditNote, DebitNote, Payment, BusinessProfile
 
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
@@ -8,11 +8,11 @@ class InvoiceItemInline(admin.TabularInline):
 
 admin.site.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_number', 'customer', 'total_amount', 'status', 'payment_status', 'issue_date']
+    list_display = ['invoice_number', 'customer', 'total_amount', 'status', 'payment_status', 'issue_date', 'invoice_uuid']
     list_filter = ['status', 'payment_status', 'issue_date']
     search_fields = ['invoice_number', 'customer__name']
     inlines = [InvoiceItemInline]
-    readonly_fields = ['invoice_number', 'subtotal', 'tax_amount', 'total_amount']
+    readonly_fields = ['invoice_number', 'subtotal', 'tax_amount', 'total_amount', 'invoice_uuid']
 
 admin.site.register(CreditNote)
 class CreditNoteAdmin(admin.ModelAdmin):
@@ -31,3 +31,4 @@ class PaymentAdmin(admin.ModelAdmin):
 
 admin.site.register(Customer)
 admin.site.register(Product)
+admin.site.register(BusinessProfile)
