@@ -332,3 +332,6 @@ def get_active_business(request):
 def business_list_view(request):
     businesses = BusinessProfile.objects.filter(owner=request.user)
     return render(request, 'invoices/business_list.html', {'businesses': businesses})
+
+def home_view(request):
+    return render(request, 'invoices/home.html')

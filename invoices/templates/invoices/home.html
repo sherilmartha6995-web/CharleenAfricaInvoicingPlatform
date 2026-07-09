@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="p-5 mb-4 bg-light rounded-3 text-center">
+        <h1 class="display-5 fw-bold">Welcome to Charleen Africa</h1>
+        <p class="fs-4">Manage your invoices, payments, and taxes with ease.</p>
+        
+        <div class="mt-4">
+            <a href="{% url 'invoices:create_invoice' %}" class="btn btn-primary btn-lg">
+                Create New Invoice
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

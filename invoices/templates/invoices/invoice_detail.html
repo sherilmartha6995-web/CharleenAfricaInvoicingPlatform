@@ -1,4 +1,4 @@
-{% extends 'invoices/base.html' %}
+{% extends 'base.html' %}
 
 {% if messages %}
     <div class="messages">
@@ -39,7 +39,9 @@
             <a href="{% url 'invoice_pdf' invoice.id %}" target="_blank" class="btn btn-success btn-sm px-4 shadow-sm fw-medium">
                 Download PDF
             </a>
-            
+            <a href="{% url 'payments:pay_invoice' invoice.id %}" class="btn btn-success">
+            Pay Invoice Now
+            </a>
             <a href="{% url 'send_invoice_email' invoice.id %}" class="btn btn-primary btn-sm px-4 shadow-sm fw-medium">
                 Email to Customer
             </a>

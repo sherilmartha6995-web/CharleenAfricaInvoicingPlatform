@@ -1,5 +1,4 @@
 from django.urls import path
-from . import views
 from django.contrib.auth import views as auth_views
 from . import views
 from .views import ProductCreateView, ProductListView, CustomerListView, CustomerCreateView,InvoiceListView, invoice_create_view, invoice_detail_view, invoice_pdf_view

@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.utils import timezone
+from django.db.models import Sum
 from django.conf import settings
 
 class BusinessProfile(models.Model):
@@ -58,6 +59,7 @@ class Invoice(models.Model):
     
     PAYMENT_STATUS_CHOICES = [
         ('UNPAID', 'Unpaid'),
+         ('PARTIAL', 'partial'),
         ('PAID', 'Fully Paid'),
     ]
     
@@ -95,6 +97,18 @@ class Invoice(models.Model):
         self.total_amount = float(self.subtotal) + total_tax
         
         super().save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
+
+    def update_payment_status(self):
+        total_paid = self.payments.filter(status='COMPLETED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+    
+        if total_paid >= self.total_amount:
+           self.payment_status = 'PAID'
+        elif total_paid > 0:
+          self.payment_status = 'PARTIAL'
+        else:
+          self.payment_status = 'UNPAID'
+    
+        self.save(update_fields=['payment_status'])
 
     def save(self, *args, **kwargs):
         if not self.invoice_number:
@@ -171,26 +185,3 @@ class DebitNote(models.Model):
             self.debit_note_number = f"DN-2026-{next_num:06d}"
         super().save(*args, **kwargs)
 
-class Payment(models.Model):
-    PAYMENT_METHOD_CHOICES = [
-        ('MPESA', 'M-Pesa'),
-    ]
-
-    invoice = models.ForeignKey('Invoice', on_delete=models.PROTECT, related_name='payments')
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, default='MPESA')
-    transaction_reference = models.CharField(max_length=100, unique=True)
-    payment_date = models.DateTimeField(default=timezone.now)
-    notes = models.TextField(blank=True, null=True, help_text="Any extra reconciliation info")
-
-    def __str__(self):
-        return f"Payment of Ksh {self.amount_paid} for {self.invoice.invoice_number}"
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.invoice.update_payment_status()
-
-    def delete(self, *args, **kwargs):
-        parent_invoice = self.invoice
-        super().delete(*args, **kwargs)
-        parent_invoice.update_payment_status()
