@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Charleen Africa Invoicing</h2>
+
+    <div class="row">
+        <div class="col-md-3"><div class="card p-3 shadow-sm"><h6>Total Sales</h6><h4>KES {{ total_sales }}</h4></div></div>
+        <div class="col-md-3"><div class="card p-3 shadow-sm bg-warning text-dark"><h6>Outstanding</h6><h4>KES {{ outstanding_invoices }}</h4></div></div>
+        <div class="col-md-3"><div class="card p-3 shadow-sm bg-success text-white"><h6>Total Collected</h6><h4>KES {{ total_collected }}</h4></div></div>
+        <div class="col-md-3"><div class="card p-3 shadow-sm"><h6>Customers</h6><h4>{{ total_customers }}</h4></div></div>
+    </div>
+
+    <div class="card mt-4 p-3 shadow-sm">
+        <canvas id="revenueChart" height="80"></canvas>
+    </div>
+
+    <div class="card mt-4 shadow-sm">
+        <div class="card-header bg-success text-white">Recently Paid Invoices</div>
+        <table class="table table-hover">
+            <thead><tr><th>Invoice </th><th>Amount</th><th>Date</th></tr></thead>
+            <tbody>
+                {% for p in recent_payments %}
+                <tr><td>{{ p.invoice.invoice_number }}</td><td>{{ p.amount }}</td><td>{{ p.created_at|date:"d M Y" }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [{% for e in monthly_data %}'Month {{ e.month }}',{% endfor %}],
+            datasets: [{
+                label: 'Revenue (KES)',
+                data: [{% for e in monthly_data %}{{ e.total }},{% endfor %}],
+                backgroundColor: '#1c3ab1'
+            }]
+        }
+    });
+</script>
+{% endblock %}

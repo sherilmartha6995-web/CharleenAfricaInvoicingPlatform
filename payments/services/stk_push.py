@@ -1,10 +1,15 @@
 import base64
 from datetime import datetime
 import requests
+from payments.utils import format_phone_number
 from django.conf import settings
 from .auth import get_mpesa_access_token
 
 def initiate_stk_push(phone_number, amount, account_reference):
+    phone_number = format_phone_number(phone_number)
+
+    print("FORMATTED PHONE:", phone_number)
+
     access_token = get_mpesa_access_token()
     api_url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
     
@@ -29,4 +34,8 @@ def initiate_stk_push(phone_number, amount, account_reference):
     
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.post(api_url, json=payload, headers=headers)
+    print("=== STK RESPONSE ===")
+    print(response.status_code)
+    print(response.text)
+
     return response.json()

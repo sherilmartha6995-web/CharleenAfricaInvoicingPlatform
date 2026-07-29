@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm bg-white p-4">
+                <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="history.back();">
+                        &larr; Back
+                    </button>
+                <h3 class="fw-bold mb-3">My Profile</h3>
+                <hr>
+                <p><strong>Username:</strong> {{ user.username }}</p>
+                <p><strong>Email:</strong> {{ user.email }}</p>
+                <p><strong>First Name:</strong> {{ user.first_name }}</p>
+                <p><strong>Last Name:</strong> {{ user.last_name }}</p>
+                <p><strong>Phone Number:</strong> {{ user.phone_number }}</p>
+                <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-secondary mt-3">Change Password</a>
+                <a href="{% url 'accounts:profile_update' %}" class="btn btn-primary mt-3">Edit Profile</a>
+                <div class="mt-4">
+                    <form action="{% url 'accounts:logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-100">Log Out</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

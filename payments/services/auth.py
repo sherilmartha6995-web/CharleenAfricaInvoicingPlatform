@@ -11,8 +11,9 @@ def get_mpesa_access_token():
     
     api_url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
     headers = {"Authorization": f"Basic {encoded_auth}"}
-    
+
     response = requests.get(api_url, headers=headers)
+
     
     if response.status_code == 200:
         return response.json()['access_token']

@@ -1,7 +1,6 @@
 from django import forms
 from django.forms.widgets import Select
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import Product, Customer, Invoice, InvoiceItem, CreditNote, DebitNote, BusinessProfile
+from .models import Product, Customer, Invoice, InvoiceItem, CreditNote, DebitNote, BusinessProfile, ProofOfDelivery
 
 
 class ProductForm(forms.ModelForm):
@@ -65,6 +64,7 @@ class InvoiceItemForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if business_id:
             self.fields['product'].queryset = Product.objects.filter(business_id=business_id)
+            self.fields['product'].label_from_instance = ( lambda obj: f"{obj.name} - KES {obj.price:,.2f}")
 
 InvoiceItemFormSet = forms.inlineformset_factory(
     Invoice,
@@ -74,19 +74,6 @@ InvoiceItemFormSet = forms.inlineformset_factory(
     extra=1,
     can_delete=True,
 )
-
-
-class CustomUserCreationForm(UserCreationForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.update({'class': 'form-control'})
-
-class CustomAuthenticationForm(AuthenticationForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.update({'class': 'form-control'})
 
 class ProductSelectWidget(Select):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
@@ -134,3 +121,21 @@ class BusinessProfileForm(forms.ModelForm):
             'email', 
             'phone_number'
         ]
+
+class PODForm(forms.ModelForm):
+    class Meta:
+        model = ProofOfDelivery
+        fields = [
+            'status', 'confirmation_method', 'recipient_email', 
+            'recipient_phone', 'delivered_by', 
+            'document', 'received_by', 'notes'
+        ]
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'confirmation_method': forms.Select(attrs={'class': 'form-control'}),
+            'recipient_email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'delivered_by': forms.TextInput(attrs={'class': 'form-control'}),
+            'received_by': forms.TextInput(attrs={'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }

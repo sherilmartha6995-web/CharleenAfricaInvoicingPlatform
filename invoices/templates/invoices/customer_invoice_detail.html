@@ -1,0 +1,9 @@
+<h1>Invoice {{ invoice.invoice_number }}</h1>
+<p>Total Amount: {{ invoice.total_amount }}</p>
+
+<form method="POST" action="{% url 'invoices:process_customer_payment' invoice_uuid=invoice.invoice_uuid %}">
+    {% csrf_token %}
+    <label>Confirm Phone Number:</label>
+    <input type="text" name="phone_number" value="{{ invoice.customer.phone_number }}">
+    <button type="submit">Pay with M-Pesa</button>
+</form>

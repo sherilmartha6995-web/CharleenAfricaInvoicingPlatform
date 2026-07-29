@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 
+
 {% block content %}
 <div class="container-fluid mt-2">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="h3 mb-0 text-dark fw-bold">Create Invoice</h2>
         </div>
-        <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary btn-sm px-4">
+        <a href="{% url 'invoices:invoice_list' %}" class="btn btn-outline-secondary btn-sm px-4">
             Back to Invoices
         </a>
     </div>
@@ -83,7 +84,7 @@
                                 
                                 <td>
                                     <div class="mb-2">{{ form.product }}</div>
-                                    <div class="metric-output-pane p-2 border rounded bg-light" style="color: #cccccc !important; font-size: 14px; font-weight: 500;">Select an item...</div>
+                                    <div class="metric-output-pane p-2 border rounded bg-light" style="color: #cccccc !important; font-size: 14px; font-weight: 500;">Select an item..</div>
                                 </td>
                                 <td>{{ form.quantity }}</td>
                                 <td>{{ form.amount }}</td>
@@ -101,13 +102,12 @@
                         </tbody>
                     </table>
                 </div>
-                
                 <button type="button" class="btn btn-outline-secondary mt-3" id="add-line-btn" onclick="executeRowAddition(event)">Add Line Item</button>
             </div>
         </div>
 
         <div class="d-flex justify-content-end gap-3 mb-5">
-            <a href="{% url 'invoice_list' %}" class="btn btn-light px-4">Cancel</a>
+            <a href="{% url 'invoices:invoice_list' %}" class="btn btn-light px-4">Cancel</a>
             <button type="submit" class="btn btn-success px-4 fw-medium">Save Invoice</button>
         </div>
     </form>
@@ -132,7 +132,7 @@
         <td>
             <div class="d-flex align-items-center gap-2">
                 <div style="display: none;">
-                   <input type="checkbox" name="items-_prefix-DELETE" class="form-check-input" id="id_items-prefix_-DELETE">
+                   <input type="checkbox" name="form-__prefix__-DELETE" class="form-check-input" id="id__form-__prefix__-DELETE">
                 </div>
                 <button type="button" class="btn btn-danger btn-sm delete-row-btn" onclick="executeRowRemoval(this, event)">Delete</button>
             </div>
@@ -144,7 +144,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
     var pricesScript = document.getElementById('product-prices-data');
     var productPrices = {};
     if (pricesScript) {
@@ -167,12 +166,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (quantityInput && (quantityInput.value === "" || parseFloat(quantityInput.value) <= 0)) {
             quantityInput.value = 1;
         }
-
         var productId = productSelect ? productSelect.value : "";
         var price = 0;
 
-        if (productId && productPrices[productId] !== undefined) {
-            price = parseFloat(productPrices[productId]) || 0;
+        if (productId) {
+            var matchedPrice = productPrices[productId] !== undefined ? productPrices[productId] : productPrices[String(productId)];
+            if (matchedPrice === undefined) {
+                for (var key in productPrices) {
+                    if (String(key) === String(productId)) {
+                        matchedPrice = productPrices[key];
+                        break;
+                    }
+                }
+            }
+            price = parseFloat(matchedPrice) || 0;
         }
 
         var quantity = parseFloat(quantityInput.value) || 1;
@@ -201,9 +208,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         if (quantityInput) {
-            // Using 'input' fires instantly on keystrokes and spinner arrows
             quantityInput.addEventListener('input', function() { 
-                calculateRowLiveMetrics(this); 
+                calculateRowLiveMetrics(this);     
             });
         }
     }
@@ -215,57 +221,69 @@ document.addEventListener('DOMContentLoaded', function() {
             calculateRowLiveMetrics(selectEl);
         }
     });
-
-    window.executeRowAddition = function(event) {
-        if (event) event.preventDefault();
-
-        var tableBody = document.querySelector('#invoiceItemsTable tbody'); 
-        var totalFormsInput = document.getElementById('id_items-TOTAL_FORMS'); 
-        var emptyFormTemplate = document.getElementById('empty-form-template');
-
-        if (tableBody && totalFormsInput && emptyFormTemplate) {
-            var formCount = parseInt(totalFormsInput.value, 10);
-            
-            var emptyFormHtml = emptyFormTemplate.innerHTML.replace(/_prefix_/g, formCount);
-            var tempContainer = document.createElement('tr');
-            tempContainer.innerHTML = emptyFormHtml.trim();
-            
-            var newRow = tempContainer.firstElementChild;
-            if (!newRow || newRow.tagName.toLowerCase() !== 'tr') {
-                newRow = tempContainer;
-            }
-
-            if (!newRow.classList.contains('line-item-row')) {
-                newRow.classList.add('line-item-row');
-            }
-
-            attachRowEventListeners(newRow);
-
-            var qtyInput = newRow.querySelector('.quantity-input');
-            if (qtyInput) {
-                qtyInput.value = 1;
-                calculateRowLiveMetrics(qtyInput);
-            }
-            
-            tableBody.appendChild(newRow);
-            
-            totalFormsInput.value = formCount + 1;
-        }
-    };
-
-    window.executeRowRemoval = function(buttonElement, event) {
-        if (event) event.preventDefault();
-        var row = buttonElement.closest('.line-item-row');
-        if (!row) return;
-
-        var deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
-        if (deleteCheckbox) {
-            deleteCheckbox.checked = true;
-            row.style.display = 'none'; 
-        } else {
-            row.remove();
-        }
-    };
 });
+
+window.executeRowAddition = function(event) {
+    if (event) event.preventDefault();
+
+    var tableBody = document.querySelector('#invoiceItemsTable tbody'); 
+    var totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]'); 
+    var emptyFormTemplate = document.getElementById('empty-form-template');
+
+    if (tableBody && totalFormsInput && emptyFormTemplate) {
+        var formCount = parseInt(totalFormsInput.value, 10);
+        
+        var emptyFormHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formCount);
+        var tempContainer = document.createElement('tr');
+        tempContainer.innerHTML = emptyFormHtml.trim();
+        
+        var newRow = tempContainer.firstElementChild;
+        if (!newRow || newRow.tagName.toLowerCase() !== 'tr') {
+            newRow = tempContainer;
+        }
+
+        if (!newRow.classList.contains('line-item-row')) {
+            newRow.classList.add('line-item-row');
+        }
+
+        var productSelect = newRow.querySelector('.product-select');
+        var quantityInput = newRow.querySelector('.quantity-input');
+
+        if (productSelect) {
+            productSelect.addEventListener('change', function() { 
+                if (typeof window.calculateRowLiveMetrics === 'function') {
+                    window.calculateRowLiveMetrics(this); 
+                }
+            });
+        }
+        if (quantityInput) {
+            quantityInput.addEventListener('input', function() { 
+                if (typeof window.calculateRowLiveMetrics === 'function') {
+                    window.calculateRowLiveMetrics(this);     
+                }
+            });
+            quantityInput.value = 1;
+        }
+        
+        tableBody.appendChild(newRow);
+        totalFormsInput.value = formCount + 1;
+    } else {
+        console.error("Error: Missing tableBody, totalFormsInput, or emptyFormTemplate elements.");
+    }
+};
+
+window.executeRowRemoval = function(buttonElement, event) {
+    if (event) event.preventDefault();
+    var row = buttonElement.closest('.line-item-row');
+    if (!row) return;
+
+    var deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (deleteCheckbox) {
+        deleteCheckbox.checked = true;
+        row.style.display = 'none'; 
+    } else {
+        row.remove();
+    }
+};
 </script>
 {% endblock content %}

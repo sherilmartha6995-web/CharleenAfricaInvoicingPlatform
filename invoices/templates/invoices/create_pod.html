@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Add Delivery Details for Invoice {{ invoice.invoice_number }}</h3>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-success">Save Delivery Proof</button>
+    </form>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const methodField = document.getElementById('id_confirmation_method');
+        const emailField = document.getElementById('id_recipient_email');
+        const phoneField = document.getElementById('id_recipient_phone');
+
+        function toggleContactFields() {
+            const value = methodField.value;
+            
+            if (value === 'EMAIL') {
+                emailField.parentElement.style.display = 'block'; 
+                phoneField.parentElement.style.display = 'none';  
+            } else if (value === 'PHONE') {
+                emailField.parentElement.style.display = 'none';  
+                phoneField.parentElement.style.display = 'block'; 
+            } else {
+                emailField.parentElement.style.display = 'none';
+                phoneField.parentElement.style.display = 'none';
+            }
+        }
+
+        methodField.addEventListener('change', toggleContactFields);
+        toggleContactFields(); 
+    });
+</script>
+{% endblock %}

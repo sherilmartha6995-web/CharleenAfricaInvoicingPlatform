@@ -6,7 +6,7 @@
         <h2 class="text-dark fw-bold m-0">Customers & Clients</h2>
         <p class="text-muted m-0">Manage customer profile accounts and billing.</p>
     </div>
-    <a href="{% url 'customer_add' %}" class="btn btn-primary fw-medium px-4">
+    <a href="{% url 'invoices:customer_add' %}" class="btn btn-primary fw-medium px-4">
         Register New Customer
     </a>
 </div>
@@ -47,9 +47,9 @@
                         
                         <td class="pe-4 text-end">
                             <div class="d-inline-flex gap-2">
-                                <a href="{% url 'customer_edit' customer.pk %}" class="btn btn-sm btn-outline-primary fw-medium">Edit</a>
+                                <a href="{% url 'invoices:customer_edit' customer.pk %}" class="btn btn-sm btn-outline-primary fw-medium">Edit</a>
         
-                                <a href="{% url 'customer_delete' customer.pk %}" class="btn btn-sm btn-outline-danger fw-medium">Delete</a>
+                                <a href="{% url 'invoices:customer_delete' customer.pk %}" class="btn btn-sm btn-outline-danger fw-medium">Delete</a>
                             </div>
                         </td>
                     </tr>

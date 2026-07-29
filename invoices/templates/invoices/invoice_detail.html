@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'base_full.html' %}
 
 {% if messages %}
     <div class="messages">
@@ -27,22 +27,22 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="h4 mb-0 text-dark fw-bold">Invoice Ledger</h2>
-            <p class="text-muted small mb-0">Unified workflow dashboard.</p>
+            <p class="text-muted small mb-0">Unified workflow.</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{% url 'create_credit_note' invoice.id %}" class="btn btn-warning btn-sm">Create Credit Note</a>
-            <a href="{% url 'create_debit_note' invoice.id %}" class="btn btn-info btn-sm">Create Debit Note</a>
-            <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary btn-sm px-3">
-                Back to Ledger 
+            <a href="{% url 'invoices:create_credit_note' invoice.id %}" class="btn btn-warning btn-sm">Create Credit Note</a>
+            <a href="{% url 'invoices:create_debit_note' invoice.id %}" class="btn btn-info btn-sm">Create Debit Note</a>
+            <a href="{% url 'invoices:invoice_list' %}" class="btn btn-outline-secondary btn-sm px-3">
+                Back
             </a>
             
-            <a href="{% url 'invoice_pdf' invoice.id %}" target="_blank" class="btn btn-success btn-sm px-4 shadow-sm fw-medium">
+            <a href="{% url 'invoices:invoice_pdf' invoice.id %}" target="_blank" class="btn btn-success btn-sm px-4 shadow-sm fw-medium">
                 Download PDF
             </a>
             <a href="{% url 'payments:pay_invoice' invoice.id %}" class="btn btn-success">
-            Pay Invoice Now
+            Request M-Pesa Payment
             </a>
-            <a href="{% url 'send_invoice_email' invoice.id %}" class="btn btn-primary btn-sm px-4 shadow-sm fw-medium">
+            <a href="{% url 'invoices:send_invoice_email' invoice.id %}" class="btn btn-primary btn-sm px-4 shadow-sm fw-medium">
                 Email to Customer
             </a>
         </div>
@@ -138,4 +138,48 @@
         </div>
     </div>
 </div>
+
+<div class="card mt-4 shadow-sm">
+        <div class="card-header" style="background-color: #3b7a57; color: white;">
+            Delivery Verification
+        </div>
+        <div class="card-body">
+            {% if invoice.pod %}
+                <p><strong>Status:</strong> {{ invoice.pod.get_status_display }}</p>
+                <p><strong>Confirmation Method:</strong> {{ invoice.pod.get_confirmation_method_display }}</p>
+                <p><strong>Delivered By:</strong> {{ invoice.pod.delivered_by }}</p>
+                <p><strong>Delivery Location:</strong> {{ invoice.pod.delivery_location }}</p>
+                <p><strong>Recipient Contact:</strong> 
+                    {% if invoice.pod.confirmation_method == 'PHONE' %}
+                        {{ invoice.pod.recipient_phone }}
+                    {% else %}
+                        {{ invoice.pod.recipient_email }}
+                    {% endif %}
+                </p>
+                <p><strong>Confirmed At:</strong> {{ invoice.pod.confirmed_at|date:"Y-m-d H:i" }}</p>
+            {% else %}
+                <p class="text-muted">No delivery record available for this invoice.</p>
+                <a href="{% url 'invoices:create_pod' invoice.id %}" class="btn btn-sm" style="background-color: #3b7a57; color: white;">Add Proof of Delivery</a>
+            {% endif %}
+        </div>
+    </div>
+
+<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const methodField = document.getElementById('id_confirmation_method');
+            if (methodField) {
+                const emailDiv = document.getElementById('div_id_recipient_email');
+                const phoneDiv = document.getElementById('div_id_recipient_phone');
+
+                function toggleContactFields() {
+                    const value = methodField.value;
+                    if (emailDiv) emailDiv.style.display = (value === 'EMAIL') ? 'block' : 'none';
+                    if (phoneDiv) phoneDiv.style.display = (value === 'PHONE') ? 'block' : 'none';
+                }
+
+                methodField.addEventListener('change', toggleContactFields);
+                toggleContactFields();
+            }
+        });
+    </script>
 {% endblock %}

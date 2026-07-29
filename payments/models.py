@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from invoices.models import Invoice
 
-# Create your models here.
+
 class Payment(models.Model):
     
     STATUS_CHOICES = [
@@ -12,7 +13,7 @@ class Payment(models.Model):
         ('REFUNDED', 'Refunded'),
     ]
 
-    invoice = models.ForeignKey('invoices.Invoice', on_delete=models.PROTECT, related_name='payments')
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     transaction_reference = models.CharField(max_length=100, unique=True)

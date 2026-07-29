@@ -13,14 +13,14 @@
             margin: 0;
             padding: 0;
             height: 100vh;
-            background-color: #0d8ef1;
+            background-color: #2e5c99;
             color: #ffffff;
             font-family: Tahoma, sans-serif;
         }
 
         .sidebar {
             height: 100vh;
-            background-color: #7890e7;
+            background-color: #517bca;
             color: white;
             padding-top: 20px;
             font-family: Tahoma, sans-serif;
@@ -58,7 +58,7 @@
             height: 100vh;
             overflow-y: auto;
             background-color: #f8f9fa;
-            color: #333333;
+            color: #1f2b7d;
             margin-left: 16.666667%;
         }
         
@@ -78,7 +78,7 @@
                 <h4 class="text-center py-2 px-3 style-title">
                     Charleen Africa Invoicing Platform
                 </h4>
-                <hr style="border-color: #333; margin-top: 20px; margin-bottom: 20px;">
+                <hr style="border-color: #0b9c2f; margin-top: 20px; margin-bottom: 20px;">
                 <div class="px-3 mb-3">
     <div class="dropdown">
         <button class="btn btn-outline-secondary w-100 dropdown-toggle" type="button" id="businessDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -91,7 +91,7 @@
         <ul class="dropdown-menu w-100" aria-labelledby="businessDropdown">
             {% for business in request.user.businesses.all %}
                 <li>
-                    <a class="dropdown-item" href="{% url 'set_active_business' business.id %}">
+                    <a class="dropdown-item" href="{% url 'invoices:set_active_business' business.id %}">
                         {{ business.business_name }}
                     </a>
                 </li>
@@ -101,24 +101,58 @@
         </ul>
     </div>
 </div>
-                <a href="#" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    Dashboard
-                </a>
-                <a href="{% url 'customer_list' %}" class="{% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}">
+                <a href="{% url 'invoices:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                Dashboard
+</a>
+                <a href="{% url 'invoices:customer_list' %}" class="{% if request.resolver_match.url_name == 'customer_list' %}active{% endif %}">
                     Customers
                 </a>
-                <a href="{% url 'product_list' %}" class="{% if request.resolver_match.url_name == 'product_list' %}active{% endif %}">
+                <a href="{% url 'invoices:product_list' %}" class="{% if request.resolver_match.url_name == 'product_list' %}active{% endif %}">
                     Products
                 </a>
-                <a href="{% url 'invoice_list' %}" class="{% if request.resolver_match.url_name == 'invoice_list' %}active{% endif %}">
+                <a href="{% url 'invoices:invoice_list' %}" class="{% if request.resolver_match.url_name == 'invoice_list' %}active{% endif %}">
                     Invoices
                 </a>
-                <a href="#" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                
+                <a href="{% url 'invoices:credit_note_list' %}" class="{% if request.resolver_match.url_name == 'credit_note_list' %}active{% endif %}">Credit Notes</a>
+
+                <a href="{% url 'invoices:debit_note_list' %}" class="{% if request.resolver_match.url_name == 'debit_note_list' %}active{% endif %}">Debit Notes</a>
+
+                <a href="{% url 'payments:payment_list' %}" class="{% if request.resolver_match.url_name == 'payment_list' %}active{% endif %}">
                     Payments
+                </a>
+<hr style="border-color: #ede8e8;">
+{% if request.user.groups.filter(name='Owner').exists %}
+<li class="nav-item">
+    <a class="nav-link" href="{% url 'accounts:user_list' %}">
+        <i class="bi bi-people"></i>
+        Users
+    </a>
+</li>
+{% endif %}
+<div class="px-3 py-2 text-white">
+    {% if user.is_authenticated %}
+    <small>Logged in as</small><br>
+    <strong>{{ user.username }}</strong>
+{% endif %}
+    
+</div>
+{% if user.is_authenticated %}
 
-                <a href="{% url 'credit_note_list' %}" class="{% if request.resolver_match.url_name == 'credit_note_list' %}active{% endif %}">Credit Notes</a>
+<a href="{% url 'accounts:profile' %}">
+    My Profile
+</a>
 
-                <a href="{% url 'debit_note_list' %}" class="{% if request.resolver_match.url_name == 'debit_note_list' %}active{% endif %}">Debit Notes</a>
+{% endif %}
+
+<form method="post" action="{% url 'accounts:logout' %}" class="m-0">
+    {% csrf_token %}
+    <button
+        type="submit"
+        style="background:none; border:none; color:white; display:block; width:100%; text-align:left; padding:12px 25px; font-weight:500;">
+        Logout
+    </button>
+</form>
             </div>
 
             <div class="col-md-10 content-area p-4">

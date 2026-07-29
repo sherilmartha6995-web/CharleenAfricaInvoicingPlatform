@@ -1,6 +1,8 @@
 import uuid
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from decimal import Decimal
 from django.db.models import Sum
 from django.conf import settings
 
@@ -11,17 +13,17 @@ class BusinessProfile(models.Model):
     is_vat_registered = models.BooleanField(default=True, verbose_name="VAT Registered")
     address = models.TextField()
     email = models.EmailField()
-    phone_number = models.CharField(max_length=20)
+    phone_number = models.CharField(max_length=13)
     created_at = models.DateTimeField(default=timezone.now) 
 
-    def _str_(self):
+    def __str__(self):
         return self.business_name
 
 class Customer(models.Model):
     business = models.ForeignKey(BusinessProfile, on_delete=models.PROTECT, blank=True, null=True, related_name='customers')
     name = models.CharField(max_length=100)
     email = models.EmailField()
-    phone_number = models.CharField(max_length=15)
+    phone_number = models.CharField(max_length=14)
     kra_pin = models.CharField(max_length=11, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True) 
 
@@ -54,6 +56,7 @@ class Invoice(models.Model):
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
         ('SUBMITTED', 'Submitted'),
+        ('TAX_VERIFIED', 'Tax Verified'),
         ('CANCELLED', 'Cancelled'),
     ]
     
@@ -79,54 +82,64 @@ class Invoice(models.Model):
     email_sent = models.BooleanField(default=False)
     printed = models.BooleanField(default=False)
 
-    def __str__(self):
-        customer_name = self.customer.name if hasattr(self.customer, 'name') else "Unknown Customer"
-        return f"{self.invoice_number or 'No Number'} - {customer_name}"
+    def generate_invoice_number(self):
+        if not self.invoice_number:
+            last_invoice = Invoice.objects.order_by('-id').first()
+            number = 1
+            if last_invoice and last_invoice.invoice_number:
+                try:
+                    last_number = int(last_invoice.invoice_number.split('-')[-1])
+                    number = last_number + 1
+                except (ValueError, IndexError):
+                    number = 1
+            self.invoice_number = f"INV-2026-{number:04d}"
 
     def calculate_totals(self):
-        totals = self.items.aggregate(
-            sum_subtotal=models.Sum('amount')
-        )
-        self.subtotal = totals['sum_subtotal'] or 0.0
-        
-        total_tax = 0.0
-        for item in self.items.all():
-            total_tax += float(item.amount) * (float(item.tax_rate) / 100.0)
-            
-        self.tax_amount = total_tax
-        self.total_amount = float(self.subtotal) + total_tax
-        
-        super().save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
+        items = self.items.all()
+        self.subtotal = items.aggregate(total=models.Sum('amount'))['total'] or Decimal('0.00')
+        self.tax_amount = sum(item.amount * (item.tax_rate / Decimal('100'))for item in items )
+        self.total_amount = self.subtotal + self.tax_amount
+        Invoice.objects.filter(pk=self.pk).update(subtotal=self.subtotal, tax_amount=self.tax_amount, total_amount=self.total_amount)
+
+    def clean(self):
+        if self.due_date and self.due_date < timezone.now().date():
+            raise ValidationError({'due_date': "The due date cannot be in the past."})
+        if self.tax_amount < 0:
+            raise ValidationError({'tax_amount': "Tax amount cannot be negative."})
+
+    @property
+    def amount_paid(self):
+        return self.payments.filter(status='COMPLETED').aggregate(total=models.Sum('amount'))['total'] or Decimal('0.00')
+
+    @property
+    def remaining_balance(self):
+        return max(Decimal('0.00'), self.total_amount - self.amount_paid)
+
+    @property
+    def is_overdue(self):
+        return self.payment_status != 'PAID' and self.due_date and self.due_date < timezone.now().date()
 
     def update_payment_status(self):
-        total_paid = self.payments.filter(status='COMPLETED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
-    
+        total_paid = self.amount_paid
         if total_paid >= self.total_amount:
-           self.payment_status = 'PAID'
+            self.payment_status = 'PAID'
         elif total_paid > 0:
-          self.payment_status = 'PARTIAL'
+            self.payment_status = 'PARTIAL'
         else:
-          self.payment_status = 'UNPAID'
-    
+            self.payment_status = 'UNPAID'
         self.save(update_fields=['payment_status'])
 
     def save(self, *args, **kwargs):
         if not self.invoice_number:
-            last_invoice = Invoice.objects.order_by('id').last()
-            prefix = "INV-2026-"
-            
-            if last_invoice and last_invoice.invoice_number:
-                try:
-                    last_number_str = last_invoice.invoice_number.split('-')[-1]
-                    next_number = int(last_number_str) + 1
-                except (ValueError, IndexError):
-                    next_number = 1
-            else:
-                next_number = 1
-                
-            self.invoice_number = f"{prefix}{next_number:06d}"
-            
+            self.generate_invoice_number()
+        self.full_clean()
         super().save(*args, **kwargs)
+        self.calculate_totals()
+        super().save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
+
+    def __str__(self):
+        customer_name = self.customer.name if hasattr(self.customer, 'name') else 'Unknown'
+        return f"{self.invoice_number or 'No Number'} - {customer_name} ({self.payment_status})"
 
 
 class InvoiceItem(models.Model):
@@ -140,8 +153,9 @@ class InvoiceItem(models.Model):
         return f"{self.product} (x{self.quantity})"
 
     def save(self, *args, **kwargs):
-        if not self.amount and self.product:
-            self.amount = self.quantity * self.product.price
+        if self.product:
+          self.amount = self.quantity * self.product.price
+        
             
         super().save(*args, **kwargs)
         self.invoice.calculate_totals()
@@ -150,6 +164,7 @@ class InvoiceItem(models.Model):
         parent_invoice = self.invoice
         super().delete(*args, **kwargs)
         parent_invoice.calculate_totals()
+
     
 class CreditNote(models.Model):
     credit_note_number = models.CharField(max_length=50, unique=True, blank=True)
@@ -165,7 +180,7 @@ class CreditNote(models.Model):
         if not self.credit_note_number:
             last_cn = CreditNote.objects.order_by('id').last()
             next_num = (int(last_cn.credit_note_number.split('-')[-1]) + 1) if last_cn else 1
-            self.credit_note_number = f"CN-2026-{next_num:06d}"
+            self.credit_note_number = f"CN-2026-{next_num:04d}"
         super().save(*args, **kwargs)
 
 class DebitNote(models.Model):
@@ -182,6 +197,34 @@ class DebitNote(models.Model):
         if not self.debit_note_number:
             last_dn = DebitNote.objects.order_by('id').last()
             next_num = (int(last_dn.debit_note_number.split('-')[-1]) + 1) if last_dn else 1
-            self.debit_note_number = f"DN-2026-{next_num:06d}"
+            self.debit_note_number = f"DN-2026-{next_num:04d}"
         super().save(*args, **kwargs)
+
+class ProofOfDelivery(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('DELIVERED', 'Delivered'),
+        ('FAILED', 'Failed'),
+    ]
+
+    CONFIRMATION_CHOICES = [
+        ('EMAIL', 'Email'),
+        ('PHONE', 'Phone'),
+    ]
+    
+    invoice = models.OneToOneField('Invoice',  on_delete=models.CASCADE, related_name='pod')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING') 
+    confirmation_method = models.CharField(max_length=10, choices=CONFIRMATION_CHOICES)
+    recipient_email = models.EmailField(blank=True, null=True)
+    recipient_phone = models.CharField(max_length=15, blank=True, null=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    delivery_date = models.DateTimeField(null=True, blank=True)
+    delivered_by = models.CharField(max_length=100)
+    document = models.FileField(upload_to='pod_documents/', null=True, blank=True)
+    received_by = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"POD for {self.invoice.invoice_number} via {self.confirmation_method}"
 

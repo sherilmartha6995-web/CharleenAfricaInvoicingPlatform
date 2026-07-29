@@ -2,8 +2,10 @@ from playwright.sync_api import sync_playwright
 import os
 import json
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Sum, Count
 from django.urls import reverse_lazy
 from django.http import HttpResponse
+from payments.services.stk_push import initiate_stk_push
 from django.http import Http404
 from django.template.loader import render_to_string
 from django.views.generic import ListView, CreateView
@@ -11,11 +13,14 @@ from django.db import transaction
 from .utils import email_invoice_to_customer
 from django.core.mail import EmailMessage
 from django.contrib import messages
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from .models import Product, Customer, Invoice, InvoiceItem, CreditNote, DebitNote, BusinessProfile 
+from payments.models import Payment, MpesaTransaction
+from django.urls import reverse
+from django.contrib.sites.shortcuts import get_current_site
+from .models import Product, Customer, Invoice, InvoiceItem, CreditNote, DebitNote, BusinessProfile, ProofOfDelivery
 from django.forms import inlineformset_factory
-from .forms import ProductForm, CustomerForm, InvoiceForm, InvoiceItemFormSet, CreditNoteForm, DebitNoteForm, BusinessProfileForm
+from .forms import ProductForm, CustomerForm, InvoiceForm, InvoiceItemFormSet, CreditNoteForm, DebitNoteForm, BusinessProfileForm, PODForm
 
 class ProductListView(ListView):
     model = Product
@@ -30,7 +35,7 @@ class ProductCreateView(CreateView):
     model = Product
     form_class = ProductForm
     template_name = 'invoices/product_form.html'
-    success_url = reverse_lazy('product_list')
+    success_url = reverse_lazy('invoices:product_list')
 
     def form_valid(self, form):
         active_business_id = self.request.session.get('active_business_id')
@@ -55,7 +60,7 @@ class CustomerCreateView(CreateView):
     model = Customer
     form_class = CustomerForm
     template_name = 'invoices/customer_form.html'
-    success_url = reverse_lazy('customer_list')
+    success_url = reverse_lazy('invoices:customer_list')
 
     def form_valid(self, form):
         active_business_id = self.request.session.get('active_business_id')
@@ -66,12 +71,12 @@ class CustomerUpdateView(UpdateView):
     model = Customer
     form_class = CustomerForm
     template_name = 'invoices/customer_form.html'
-    success_url = reverse_lazy('customer_list')
+    success_url = reverse_lazy('invoices:customer_list')
 
 class CustomerDeleteView(DeleteView):
     model = Customer
     template_name = 'invoices/customer_confirm_delete.html'
-    success_url = reverse_lazy('customer_list')    
+    success_url = reverse_lazy('invoices:customer_list')    
     
 class InvoiceListView(ListView):
     model = Invoice
@@ -83,16 +88,23 @@ class InvoiceListView(ListView):
         active_business_id = self.request.session.get('active_business_id')
         
         return Invoice.objects.filter(business_id=active_business_id)
-
+    
+@login_required
 def invoice_create_view(request):
     active_business_id = request.session.get('active_business_id')
     
     if not active_business_id:
-        return redirect('business_list') 
+        return redirect('invoices:business_list') 
 
     if request.method == 'POST':
         form = InvoiceForm(request.POST, business_id=active_business_id)
         formset = InvoiceItemFormSet(request.POST, request.FILES, instance=form.instance, form_kwargs={'business_id': active_business_id})
+
+        print("Invoice form valid:", form.is_valid())
+        print("Formset valid:", formset.is_valid())
+        print("Invoice form errors:", form.errors)
+        print("Formset errors:", formset.errors)
+        print("Non-form errors:", formset.non_form_errors())
         
         if form.is_valid() and formset.is_valid():
             try:
@@ -105,7 +117,7 @@ def invoice_create_view(request):
                     formset.save()
                     invoice.calculate_totals()
 
-                return redirect('invoice_list')
+                return redirect('invoices:invoice_list')
             except Exception as e:
                 print(f"Database write exception: {str(e)}")
     else:
@@ -122,6 +134,7 @@ def invoice_create_view(request):
     }
     return render(request, 'invoices/invoice_form.html', context)
 
+@login_required
 def invoice_detail_view(request, invoice_uuid):
     active_business_id = request.session.get('active_business_id')
     
@@ -142,7 +155,7 @@ def invoice_detail_view(request, invoice_uuid):
             invoice_form.save()
             formset.instance = invoice
             formset.save()
-            return redirect('invoice_detail', invoice_uuid=invoice.invoice_uuid)
+            return redirect('invoices:invoice_detail', invoice_uuid=invoice.invoice_uuid)
             
     else:
         invoice_form = InvoiceForm(instance=invoice, business_id=active_business_id)
@@ -191,15 +204,16 @@ def invoice_pdf_view(request, pk):
     response['Content-Disposition'] = f'attachment; filename="Invoice_{invoice.id:04d}.pdf"'
     return response
 
+@login_required
 def send_invoice_email_view(request, invoice_id):
     invoice = get_object_or_404(Invoice, id=invoice_id)
     
     if not invoice.customer or not invoice.customer.email:
         messages.error(request, "Cannot dispatch email: Customer profile has no valid registered email.")
-        return redirect('invoice_detail', invoice_uuid=invoice.invoice_uuid)
+        return redirect('invoices:invoice_detail', invoice_uuid=invoice.invoice_uuid)
 
     line_items = invoice.items.all()
-
+    payment_url = request.build_absolute_uri(reverse('invoices:customer_invoice_view', kwargs={'invoice_uuid':invoice.invoice_uuid}))
     context = {
         'invoice': invoice,
         'line_items': line_items,
@@ -211,7 +225,7 @@ def send_invoice_email_view(request, invoice_id):
     try:
         subject = f"Official Invoice #{invoice.id:04d} - Charleen Africa Invoicing"
         email_body = f"Dear {invoice.customer.name},\n\nPlease find attached your official invoice statement for services rendered.\n\nWarm regards,\nCharleen Africa Invoicing Team"
-        
+        email_body = f"Dear {invoice.customer.name},\n\nPlease find attached your official invoice. You can pay here: {payment_url}"
         email = EmailMessage(
             subject=subject,
             body=email_body,
@@ -227,20 +241,8 @@ def send_invoice_email_view(request, invoice_id):
     except Exception as e:
         messages.error(request, f"Encountered systemic fault routing email dispatch: {str(e)}")
 
-    return redirect('invoice_detail', invoice_uuid=invoice.invoice_uuid)
+    return redirect('invoices:invoice_detail', invoice_uuid=invoice.invoice_uuid)
 
-def register_view(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Account created successfully! You can now log in.')
-            return redirect('login')
-    else:
-        form = UserCreationForm()
-        
-    context = {'form': form}
-    return render(request, 'invoices/register.html', context)
 
 def credit_note_list_view(request):
     credit_notes = CreditNote.objects.all().order_by('-created_at')
@@ -262,7 +264,7 @@ def create_credit_note(request, invoice_id):
             credit_note = form.save(commit=False)
             credit_note.invoice = invoice
             credit_note.save()
-            return redirect('invoice_detail', pk=invoice.id)
+            return redirect('invoices:invoice_detail', pk=invoice.id)
     else:
         form = CreditNoteForm(initial={
             'subtotal': invoice.subtotal, 
@@ -282,7 +284,7 @@ def create_debit_note(request, invoice_id):
             debit_note = form.save(commit=False)
             debit_note.invoice = invoice
             debit_note.save()
-            return redirect('invoice_detail', pk=invoice.id)
+            return redirect('invoices:invoice_detail', pk=invoice.id)
     else:
         form = DebitNoteForm(initial={
             'subtotal': invoice.subtotal, 
@@ -300,7 +302,7 @@ def register_business_view(request):
             business = form.save(commit=False)
             business.owner = request.user 
             business.save()
-            return redirect('business_list')
+            return redirect('invoices:business_list')
     else:
         form = BusinessProfileForm()
     return render(request, 'invoices/register_business.html', {'form': form})
@@ -312,7 +314,7 @@ def set_active_business(request, business_id):
     
     request.session['active_business_id'] = business.id
     
-    return redirect('invoice_list') 
+    return redirect('invoices:invoice_list') 
 
 def get_active_business(request):
     business_id = request.session.get('active_business_id')
@@ -329,9 +331,76 @@ def get_active_business(request):
     
     return None
 
+@login_required
 def business_list_view(request):
     businesses = BusinessProfile.objects.filter(owner=request.user)
     return render(request, 'invoices/business_list.html', {'businesses': businesses})
 
+def get_payment_status(self):
+    return Payment.objects.filter(invoice=self).first()
+
 def home_view(request):
     return render(request, 'invoices/home.html')
+
+@login_required
+def dashboard(request):
+    total_sales = Invoice.objects.aggregate(total=Sum('total_amount'))['total'] or 0
+    outstanding_invoices = Invoice.objects.filter(payment_status='UNPAID').aggregate(total=Sum('total_amount'))['total'] or 0
+    total_collected = Payment.objects.filter(status='COMPLETED').aggregate(total=Sum('amount'))['total'] or 0
+    total_customers = Customer.objects.count()
+    total_products = Product.objects.count()
+    pending_mpesa = MpesaTransaction.objects.filter(result_code=1032).count()
+    failed_mpesa = MpesaTransaction.objects.filter(result_code__gt=0).exclude(result_code=1032).count()
+    recent_payments = Payment.objects.filter(status='COMPLETED').order_by('-created_at')[:5]
+
+    monthly_data = Payment.objects.filter(status='COMPLETED') \
+        .extra(select={'month': "strftime('%%m', created_at)"}) \
+        .values('month').annotate(total=Sum('amount')).order_by('month')
+
+    context = {
+        'total_sales': total_sales, 'outstanding_invoices': outstanding_invoices,
+        'total_collected': total_collected, 'total_customers': total_customers,
+        'total_products': total_products, 'pending_mpesa': pending_mpesa,
+        'failed_mpesa': failed_mpesa, 'recent_payments': recent_payments,
+        'monthly_data': list(monthly_data)
+    }
+    return render(request, 'invoices/dashboard.html', context)
+
+def create_pod(request, invoice_id):
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    
+    if request.method == 'POST':
+        form = PODForm(request.POST, request.FILES)
+        if form.is_valid():
+            pod = form.save(commit=False)
+            pod.invoice = invoice
+            pod.save()
+            return redirect('invoices:invoice_detail', invoice_id=invoice.id)
+    else:
+        form = PODForm()
+        
+    return render(request, 'invoices/create_pod.html', {'form': form, 'invoice': invoice})
+
+def customer_invoice_view(request, invoice_uuid):
+    invoice = get_object_or_404(Invoice, invoice_uuid=invoice_uuid)
+    return render(request, 'invoices/customer_invoice_detail.html', {'invoice': invoice})
+
+def process_customer_payment(request, invoice_uuid):
+    invoice = get_object_or_404(Invoice, invoice_uuid=invoice_uuid)
+    print("Invoice:", invoice.invoice_number)
+    
+    if request.method == 'POST':
+        phone_number = request.POST.get('phone_number')
+        
+        response = initiate_stk_push(
+            phone_number=phone_number, 
+            amount=invoice.total_amount, 
+            account_reference=invoice.invoice_number
+        )
+        
+        if response.get('success'):
+            messages.success(request, "Check your phone for the M-Pesa prompt!")
+        else:
+            messages.error(request, "Payment request failed. Please try again.")
+            
+        return redirect('invoices:customer_invoice_view', invoice_uuid=invoice.invoice_uuid)

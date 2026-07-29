@@ -8,7 +8,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h2 class="card-title">Select a Business</h2>
-                        <a href="{% url 'register_business' %}" class="btn btn-success btn-sm">
+                        <a href="{% url 'invoices:register_business' %}" class="btn btn-success btn-sm">
                             + Register New Business
                         </a>
                     </div>
@@ -17,7 +17,7 @@
                     
                     <div class="list-group">
                         {% for business in businesses %}
-                            <a href="{% url 'set_active_business' business.id %}" class="list-group-item list-group-item-action">
+                            <a href="{% url 'invoices:set_active_business' business.id %}" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="mb-1">{{ business.business_name }}</h5>
                                     <small class="text-primary">Click to Select</small>

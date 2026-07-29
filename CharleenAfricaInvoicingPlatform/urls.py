@@ -21,8 +21,7 @@ from invoices import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', RedirectView.as_view(url='invoices/')),
-    path('', views.home_view, name='home'),
-    path('invoices/', include('invoices.urls')), 
-    path('payments/', include("payments.urls")),
+    path('', include('invoices.urls')), 
+    path('accounts/', include('accounts.urls')),
+    path('payments/', include('payments.urls')),
 ]

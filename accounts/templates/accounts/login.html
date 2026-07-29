@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'base_full.html' %}
 
 {% block content %}
 <div class="container mt-5">
@@ -30,10 +30,13 @@
                             <label class="form-label">Password</label>
                             {{ form.password }}
                         </div>
+                        <div class="mb-3 text-end">
+                            <a href="{% url 'accounts:password_reset' %}" class="small text-decoration-none text-muted">Forgot Password?</a>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100 mt-3">Log In</button>
                     </form>
                     <div class="text-center mt-3">
-                        <small class="text-muted">Don't have an account? <a href="{% url 'register' %}">Sign up</a></small>
+                        <small class="text-muted">Don't have an account? <a href="{% url 'accounts:register' %}">Sign up</a></small>
                     </div>
                 </div>
             </div>
