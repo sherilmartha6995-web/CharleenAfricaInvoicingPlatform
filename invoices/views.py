@@ -10,10 +10,11 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.views.generic import ListView, CreateView
 from django.db import transaction
+from accounts.utils import  log_activity, get_client_ip
 from .utils import email_invoice_to_customer
 from django.core.mail import EmailMessage
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from payments.models import Payment, MpesaTransaction
 from django.urls import reverse
@@ -46,6 +47,7 @@ class ProductCreateView(CreateView):
             
         form.instance.business_id = active_business_id
         return super().form_valid(form)
+
 
 class CustomerListView(ListView):
     model = Customer
@@ -90,6 +92,7 @@ class InvoiceListView(ListView):
         return Invoice.objects.filter(business_id=active_business_id)
     
 @login_required
+@permission_required("invoices.add_invoice", raise_exception=True)
 def invoice_create_view(request):
     active_business_id = request.session.get('active_business_id')
     

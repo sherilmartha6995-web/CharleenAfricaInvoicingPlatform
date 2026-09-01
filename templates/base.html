@@ -122,7 +122,7 @@
                     Payments
                 </a>
 <hr style="border-color: #ede8e8;">
-{% if request.user.groups.filter(name='Owner').exists %}
+{% if request.user.is_owner %}
 <li class="nav-item">
     <a class="nav-link" href="{% url 'accounts:user_list' %}">
         <i class="bi bi-people"></i>
@@ -132,7 +132,7 @@
 {% endif %}
 <div class="px-3 py-2 text-white">
     {% if user.is_authenticated %}
-    <small>Logged in as</small><br>
+ <small>Logged in as</small><br>
     <strong>{{ user.username }}</strong>
 {% endif %}
     
@@ -142,9 +142,14 @@
 <a href="{% url 'accounts:profile' %}">
     My Profile
 </a>
-
 {% endif %}
-
+{% if perms.accounts.view_auditlog %}
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'audit_log_list' %}active{% endif %}" href="{% url 'accounts:audit_log_list' %}">
+            <i class="bi bi-shield-lock"></i> Audit Logs
+        </a>
+    </li>
+{% endif %}
 <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
     {% csrf_token %}
     <button

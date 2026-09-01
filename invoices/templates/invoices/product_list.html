@@ -31,7 +31,7 @@
                         <td><code class="text-secondary bg-light px-2 py-1 rounded">{{ product.sku|default:"N/A" }}</code></td>
                         <td>
                             {% if product.product_type == 'GOODS' %}
-                                <span class="badge bg-info-subtle text-info px-2.5 py-1">physical Product</span>
+                                <span class="badge bg-info-subtle text-info px-2.5 py-1">Product</span>
                             {% else %}
                                 <span class="badge bg-warning-subtle text-warning px-2.5 py-1">Service / Consulting</span>
                             {% endif %}
@@ -42,7 +42,7 @@
                             {% if product.product_type == 'GOODS' %}
                                 {{ product.stock_quantity }} units
                             {% else %}
-                                <span class="text-muted italic">Infinite (Service)</span>
+                                <span class="text-muted italic">(Service)</span>
                             {% endif %}
                         </td>
                     </tr>

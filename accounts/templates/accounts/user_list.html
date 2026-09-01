@@ -1,9 +1,12 @@
-{% extends 'base_full.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Manage Users</h2>
+        <small class="text-muted">
+            {{ business.business_name }}
+        </small>
         <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">+ Add New User</a>
     </div>
 
@@ -38,11 +41,26 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{% url 'accounts:user_update' u.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                                {% if u.is_active %}
-                                    <a href="{% url 'accounts:user_deactivate' u.pk %}" class="btn btn-sm btn-outline-danger">Deactivate</a>
+                                <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                
+                                {% if not u.is_owner %}
+                                    <a href="{% url 'accounts:manage_permissions' u.pk %}" class="btn btn-sm btn-outline-secondary">Manage Permissions</a>
+                                {% endif %}
+
+                                {% if u == request.user %}
+                                    <span class="badge bg-secondary ms-1">Current User</span>
                                 {% else %}
-                                    <a href="{% url 'accounts:user_deactivate' u.pk %}" class="btn btn-sm btn-outline-success">Activate</a>
+                                    {% if u.is_active %}
+                                        <form action="{% url 'accounts:user_toggle_status' u.pk %}" method="POST" class="d-inline ms-1">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to deactivate this user?');">Deactivate</button>
+                                        </form>
+                                    {% else %}
+                                        <form action="{% url 'accounts:user_toggle_status' u.pk %}" method="POST" class="d-inline ms-1">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                                        </form>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>

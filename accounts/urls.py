@@ -40,6 +40,8 @@ path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(
 path('profile/edit/', views.profile_update_view, name='profile_update'),
 path("users/", views.user_list, name="user_list"),
 path("users/add/", views.user_create, name="user_create"),
-path("users/<int:pk>/edit/", views.user_update, name="user_update"),
-path("users/<int:pk>/deactivate/", views.user_deactivate, name="user_deactivate"),
+path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
+path("users/<int:pk>/toggle-status/", views.user_toggle_status, name="user_toggle_status",),
+path("users/<int:pk>/permissions/", views.manage_permissions, name="manage_permissions"),
+path('audit-logs/', views.audit_log_list, name='audit_log_list'),
 ]
